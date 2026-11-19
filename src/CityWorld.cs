@@ -4,9 +4,10 @@ using System.Drawing;
 namespace QuietCrossing {
  sealed partial class PixelWorld {
   void DrawCity(Game game,Color[] colors){
-   Ground(-1800,-1600,2400,3000,-.05f,Grass);
+   Ground(-1800,-1600,CityMap.Width+1800,CityMap.Height+2000,-.05f,Grass);
    for(int i=1;i<CityMap.Path.Length;i++){
     MapPoint a=CityMap.Path[i-1],b=CityMap.Path[i];
+    if(Math.Max(a.Y,b.Y)<cameraY-1000||Math.Min(a.Y,b.Y)>cameraY+400)continue;
     if(a.Y==b.Y)Ground(Math.Min(a.X,b.X)-15,a.Y-15,Math.Max(a.X,b.X)+15,a.Y+15,.025f,Color.FromArgb(199,195,160));
     else {
      float cursor=Math.Min(a.Y,b.Y)-15,end=Math.Max(a.Y,b.Y)+15;
@@ -20,6 +21,7 @@ namespace QuietCrossing {
     }
    }
    foreach(Street street in CityMap.Streets){
+    if(street.Bottom<cameraY-1000||street.Top>cameraY+400)continue;
     float top=street.Top,bottom=street.Bottom,x=street.CrossX;
     Ground(-1600,top,1800,bottom,0,Road);
     Ground(-1600,top-20,1800,top,.05f,Color.FromArgb(194,197,171));
@@ -36,6 +38,7 @@ namespace QuietCrossing {
    }
    for(int i=1;i<CityMap.Path.Length;i++){
     MapPoint a=CityMap.Path[i-1],b=CityMap.Path[i];float distance=CityMap.Distance(a,b);
+    if(Math.Max(a.Y,b.Y)<cameraY-1000||Math.Min(a.Y,b.Y)>cameraY+400)continue;
     for(float t=0;t<distance;t+=14){float x=a.X+(b.X-a.X)*t/distance,y=a.Y+(b.Y-a.Y)*t/distance;if(!CityMap.OnRoad(y))Ground(x-1,y-1,x+2,y+2,.16f,Cream);}
    }
    for(int i=0;i<CityMap.Houses.Length;i++){
@@ -47,9 +50,10 @@ namespace QuietCrossing {
    }
    foreach(MapPoint tree in CityMap.Trees)if(Math.Abs(tree.Y-cameraY)<650)Tree(tree.X,tree.Y);
    // A few trees outside the walking boundary make the street edges feel continuous.
-   for(int i=0;i<10;i++){float y=100+i*140;if(Math.Abs(y-cameraY)<650){Tree(-55,y);Tree(710,y+30);}}
+   for(int i=-5;i<=5;i++){float y=(int)(cameraY/140)*140+i*140;Tree(-55,y);Tree(CityMap.Width+70,y+30);}
    for(int i=0;i<CityMap.Streets.Length;i++){
     MapPoint p=CityMap.Streets[i].Exit;Color c=i<game.CompletedRoads?Color.FromArgb(150,189,128):i==game.CompletedRoads?Color.FromArgb(246,201,104):Cream;
+    if(Math.Abs(p.Y-cameraY)>1000)continue;
     Ground(p.X-13,p.Y-11,p.X+13,p.Y+11,.2f,c);
     // A low guidepost on the far curb stays visible from the eye-level camera.
     Box(p.X+28,p.Y,0,p.X+30,p.Y+2,23,Ink);Box(p.X+23,p.Y,17,p.X+35,p.Y+2,29,c);

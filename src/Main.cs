@@ -147,10 +147,10 @@ namespace QuietCrossing {
     Button(g,"Настройки",151,201,178,delegate{returnPage="menu";Go("settings");});
     Button(g,"Выход",151,235,178,Close);
     Center(g,"WASD / стрелки • Esc — пауза",282,9,mint);
-    TextAt(g,"v1.2.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
+    TextAt(g,"v1.3.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
    } else if(page=="camera") {
     Center(g,"ВЫБЕРИ ВИД",35,24,cream,true);
-    Center(g,"Пять улиц. Один маршрут А → Б.",72,11,mint);
+    Center(g,"12 районов · 60 переходов · от 21 минуты",72,10,mint);
     Button(g,"От первого лица",105,106,270,delegate{ChooseCamera(CameraMode.FirstPerson);},settings.Camera==CameraMode.FirstPerson);
     Center(g,"Посмотри на дорогу глазами персонажа",137,9,mint);
     Button(g,"От третьего лица",105,163,270,delegate{ChooseCamera(CameraMode.ThirdPerson);},settings.Camera==CameraMode.ThirdPerson);
@@ -172,8 +172,8 @@ namespace QuietCrossing {
    } else {
     bool lost=page=="lost",won=page=="won";
     Center(g,lost?"НЕ В ЭТОТ РАЗ":won?"ТЫ ДОШЁЛ ДО ТОЧКИ Б!":"ПАУЗА",68,22,cream,true);
-    Center(g,lost?"Пройдено "+game.CompletedRoads+" из 5 переходов. Начнём маршрут заново?":won?"Пять улиц позади. Весь маршрут пройден.":"Выдохни. Город подождёт. M — открыть карту.",107,10,mint);
-    if(lost||won)Center(g,"Время: "+game.Time.ToString("0.0")+" с",132,10,cream);
+    Center(g,lost?"Пройдено "+game.CompletedRoads+" из 60 переходов. Начнём маршрут заново?":won?"60 улиц позади. Весь город пройден.":"Выдохни. Город подождёт. M — открыть карту.",107,10,mint);
+    if(lost||won)Center(g,"Время: "+Game.Duration(game.Time),132,10,cream);
     Button(g,page=="pause"?"Продолжить":"Ещё раз  →",151,167,178,page=="pause"?(Action)(()=>Go("play")):StartGame,true);
     if(page=="pause")Button(g,"Настройки",151,201,178,delegate{returnPage="pause";Go("settings");});
     Button(g,"Главное меню",151,page=="pause"?235:205,178,delegate{Go("menu");});
@@ -189,13 +189,14 @@ namespace QuietCrossing {
   void CapturePreviews() {
    Directory.CreateDirectory("docs");
    settings=new Settings{Sound=false};focus=-1;mouse=new PointF(-1,-1);keys.Clear();
-   foreach(string p in new string[]{"menu","camera","play","settings","pause","lost","won","map","city-middle","first-person","third-person","look-left","first-person-road","third-person-road"}) {
+   foreach(string p in new string[]{"menu","camera","play","settings","pause","lost","won","map","map-local","city-middle","first-person","third-person","look-left","first-person-road","third-person-road"}) {
     settings.Camera=p=="first-person"||p=="look-left"||p=="first-person-road"?CameraMode.FirstPerson:p=="third-person"||p=="third-person-road"?CameraMode.ThirdPerson:CameraMode.Bird;
     page=p=="first-person"||p=="third-person"||p=="look-left"||p=="city-middle"||p.EndsWith("-road")?"play":p;
+    mapLocal=p=="map-local";if(mapLocal)page="map";
     lookAngle=p=="look-left"?-1.25f:0;
-    game=new Game(1,1234);if(p.EndsWith("-road"))game.Y=1200;
-    if(p=="city-middle"){Tests.VisitRoads(game,2);game.Cars.Add(new Car(220,740,60,29,0));game.X=170;game.Y=820;}
-    if(p=="lost")game.Result=Outcome.Lost;if(p=="won"){Tests.VisitRoads(game,5);game.X=CityMap.Finish.X;game.Y=CityMap.Finish.Y;game.Update(.001f,0,0);}
+    game=new Game(1,1234);if(p.EndsWith("-road"))game.Y=CityMap.Streets[0].Bottom-20;
+    if(p=="city-middle"){Tests.VisitRoads(game,30);Street middle=CityMap.Streets[30];game.X=middle.CrossX;game.Y=middle.Bottom+28;game.Cars.Add(new Car(middle.CrossX+60,middle.Top+16,60,29,0));}
+    if(p=="lost")game.Result=Outcome.Lost;if(p=="won")Tests.WalkRoute(game);
     using(Graphics g=Graphics.FromImage(scene))Draw(g);
     using(var output=new Bitmap(960,640))using(Graphics g=Graphics.FromImage(output)){g.InterpolationMode=InterpolationMode.NearestNeighbor;g.PixelOffsetMode=PixelOffsetMode.Half;g.DrawImage(scene,0,0,960,640);output.Save("docs/"+p+".png",ImageFormat.Png);}
    }
@@ -228,7 +229,7 @@ namespace QuietCrossing {
      log.AppendLine("PASS pause freezes simulation, settings return, focus loss pause");
      click("Продолжить");w.game.Cars.Clear();w.game.Y=CityMap.Streets[0].Top+16;w.game.Cars.Add(new Car(w.game.X,w.game.Y,1,29,0));w.previous=w.watch.Elapsed.TotalSeconds-0.02;w.Tick(null,EventArgs.Empty);
      if(w.page!="lost")throw new Exception("Collision screen");w.Refresh();click("Ещё раз  →");if(w.page!="play"||w.game.Y!=CityMap.Start.Y||w.game.CompletedRoads!=0)throw new Exception("Restart");
-     Tests.VisitRoads(w.game,5);w.game.X=CityMap.Finish.X;w.game.Y=CityMap.Finish.Y;w.previous=w.watch.Elapsed.TotalSeconds-0.02;w.Tick(null,EventArgs.Empty);if(w.page!="won"||w.settings.Wins!=1)throw new Exception("Victory screen");
+     Tests.VisitRoads(w.game,CityMap.Streets.Length);w.game.X=CityMap.Finish.X;w.game.Y=CityMap.Finish.Y;w.previous=w.watch.Elapsed.TotalSeconds-0.02;w.Tick(null,EventArgs.Empty);if(w.page!="won"||w.settings.Wins!=1)throw new Exception("Victory screen");
      w.Refresh();click("Главное меню");if(w.page!="menu")throw new Exception("Menu return");
      w.OnKeyDown(new KeyEventArgs(Keys.Tab));w.OnKeyDown(new KeyEventArgs(Keys.Enter));if(w.page!="camera")throw new Exception("Keyboard menu");render();
      w.OnKeyDown(new KeyEventArgs(Keys.Enter));if(w.page!="play")throw new Exception("Keyboard camera selection");
@@ -238,6 +239,7 @@ namespace QuietCrossing {
       if(w.settings.Camera!=mode||w.page!="play")throw new Exception("Camera mode start "+mode);
       Game routeGame=w.game;float mapTime=w.game.Time;
       click("Карта [M]");w.Tick(null,EventArgs.Empty);if(w.page!="map"||w.game.Time!=mapTime)throw new Exception("Map must freeze game");
+      click("Район");if(!w.mapLocal)throw new Exception("Local map toggle");click("Весь путь");if(w.mapLocal)throw new Exception("Campaign map toggle");
       w.OnKeyDown(new KeyEventArgs(Keys.M));w.OnKeyUp(new KeyEventArgs(Keys.M));if(w.page!="play"||w.game!=routeGame)throw new Exception("Map keyboard return");
       render();float y=w.game.Y;Game sameGame=w.game;
       w.OnKeyDown(new KeyEventArgs(Keys.V));render();
@@ -254,11 +256,11 @@ namespace QuietCrossing {
       click("Продолжить");
       w.game.Cars.Clear();w.game.Y=CityMap.Streets[0].Top+16;w.game.Cars.Add(new Car(w.game.X,w.game.Y,1,29,0));w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
       if(w.page!="lost")throw new Exception("Collision in camera "+mode);render();
-      click("Ещё раз  →");if(w.settings.Camera!=mode||w.game.CompletedRoads!=0)throw new Exception("Retry preserves camera and resets route");Tests.VisitRoads(w.game,5);w.game.X=CityMap.Finish.X;w.game.Y=CityMap.Finish.Y;w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
+      click("Ещё раз  →");if(w.settings.Camera!=mode||w.game.CompletedRoads!=0)throw new Exception("Retry preserves camera and resets route");Tests.VisitRoads(w.game,CityMap.Streets.Length);w.game.X=CityMap.Finish.X;w.game.Y=CityMap.Finish.Y;w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
       if(w.page!="won")throw new Exception("Victory in camera "+mode);render();
      }
      log.AppendLine("PASS all three cameras, V preserves route, Q/E look, map pauses and returns, full-route win and retry");
-     w.CapturePreviews();w.Close();log.AppendLine("PASS fourteen rendered screen previews");
+     w.CapturePreviews();w.Close();log.AppendLine("PASS fifteen rendered screen previews");
     }
     File.WriteAllText("ui-test-results.txt",log.ToString());return 0;
    } catch(Exception ex) {File.WriteAllText("ui-test-results.txt",log+"FAIL "+ex);return 1;}

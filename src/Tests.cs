@@ -10,7 +10,7 @@ namespace QuietCrossing {
   internal static void VisitRoads(Game game,int count){
    while(game.CompletedRoads<count){MapPoint p=game.Target;game.X=p.X;game.Y=p.Y;game.Cars.Clear();int before=game.CompletedRoads;game.Update(.001f,0,0);if(game.CompletedRoads==before)throw new Exception("Route setup failed");}
   }
-  static void WalkRoute(Game game){
+  internal static void WalkRoute(Game game){
    for(int i=1;i<CityMap.Path.Length&&game.Result==Outcome.Playing;i++){
     MapPoint point=CityMap.Path[i];int guard=0;
     while(CityMap.Distance(new MapPoint(game.X,game.Y),point)>.2f&&game.Result==Outcome.Playing){
@@ -30,7 +30,10 @@ namespace QuietCrossing {
    var log=new StringBuilder();string folder=Path.Combine(Path.GetTempPath(),"QuietCrossingTests-"+Guid.NewGuid().ToString("N"));
    try {
     var game=new Game(1,42);game.Update(1,0,0);Check(game.Result==Outcome.Playing&&game.Y==CityMap.Start.Y,"point A is safe",log);
-    Check(CityMap.Streets.Length==5&&CityMap.Height>320*4,"map has five streets and spans multiple screens",log);
+    Check(CityMap.Streets.Length==60&&CityMap.Districts.Length==12,"map has twelve districts and sixty streets",log);
+    Check(CityMap.MinimumSeconds>=1200,"straight-line vertical lower bound exceeds 20 minutes, including finish tolerance",log);
+    Check(CityMap.TotalDistance/Game.MoveSpeed>CityMap.MinimumSeconds,"marked route is longer than the shortcut lower bound",log);
+    log.AppendLine("INFO shortcut lower bound="+CityMap.MinimumSeconds.ToString("0.00")+" s; marked route="+(CityMap.TotalDistance/Game.MoveSpeed).ToString("0.00")+" s");
     foreach(Street street in CityMap.Streets){
      game=new Game(1,42);game.Cars.Clear();game.X=street.CrossX;game.Y=street.Top+16;game.Cars.Add(new Car(game.X,game.Y,0,29,0));game.Update(.02f,0,0);
      Check(game.Result==Outcome.Lost,"collision on "+street.Name,log);
@@ -41,19 +44,22 @@ namespace QuietCrossing {
     game.Update(.01f,0,0);Check(game.CompletedRoads==1,"one checkpoint cannot be counted twice",log);
     game=new Game(1,7);game.Cars.Clear();game.X=CityMap.Finish.X;game.Y=CityMap.Finish.Y;game.Update(.01f,0,0);Check(game.Result==Outcome.Playing&&game.CompletedRoads==0,"point B cannot bypass the route",log);
     game.X=CityMap.Streets[4].Exit.X;game.Y=CityMap.Streets[4].Exit.Y;game.Update(.01f,0,0);Check(game.CompletedRoads==0,"checkpoints require route order",log);
-    game=new Game(1,8);VisitRoads(game,5);Check(game.CompletedRoads==5&&game.Result==Outcome.Playing,"fifth crossing still requires reaching point B",log);
-    game.Cars.Clear();game.X=CityMap.Finish.X;game.Y=CityMap.Finish.Y;game.Update(.01f,0,0);Check(game.Result==Outcome.Won&&game.Progress==1,"five crossings and point B win",log);
+    game=new Game(1,8);VisitRoads(game,CityMap.Streets.Length);Check(game.CompletedRoads==CityMap.Streets.Length&&game.Result==Outcome.Playing,"last crossing still requires reaching point B",log);
+    game.Cars.Clear();game.X=CityMap.Finish.X;game.Y=CityMap.Finish.Y;game.Update(.01f,0,0);Check(game.Result==Outcome.Won&&game.Progress==1,"all crossings and point B win",log);
     game=new Game(1,9);Check(game.CompletedRoads==0&&game.Time==0&&game.X==CityMap.Start.X&&game.Y==CityMap.Start.Y,"new attempt resets the whole route",log);
     game.Update(.5f,0,-1);Check(Math.Abs(game.Y-(CityMap.Start.Y-32))<.01f,"movement speed is time based",log);
     var diagonal=new Game(1,9);diagonal.Update(.5f,1,-1);Check(Math.Abs((CityMap.Start.Y-diagonal.Y)*(float)Math.Sqrt(2)-32)<.01f,"diagonal movement normalized",log);
     game=new Game(1,9);game.X=14;game.Y=28;game.Update(.5f,-1,-1);Check(game.X>=12&&game.Y>=24,"map boundaries contain player",log);
-    game=new Game(1,9);game.X=40;game.Y=1300;game.Update(.5f,1,0);Check(game.X<=46,"buildings block walking through walls",log);
+    game=new Game(1,9);game.X=40;game.Y=CityMap.Houses[0].Y+20;game.Update(.5f,1,0);Check(game.X<=CityMap.Houses[0].X-4,"buildings block walking through walls",log);
     game=new Game(2,123);for(int i=0;i<3000;i++)game.Update(.02f,0,0);
-    Check(game.Cars.Count>30&&game.Cars.Count<300,"all streets maintain bounded traffic over 60 seconds",log);
-    foreach(Street street in CityMap.Streets)Check(game.Cars.Exists(c=>c.Y>street.Top&&c.Y<street.Bottom&&c.Speed>0)&&game.Cars.Exists(c=>c.Y>street.Top&&c.Y<street.Bottom&&c.Speed<0),"both traffic directions: "+street.Name,log);
+    Check(game.Cars.Count>0&&game.Cars.Count<150,"nearby streets maintain bounded traffic over 60 seconds",log);
+    foreach(Street street in CityMap.Streets){game=new Game(1,43);game.X=street.CrossX;game.Y=street.Bottom+25;game.Update(.01f,0,0);Check(game.Cars.Exists(c=>c.Y>street.Top&&c.Y<street.Bottom&&c.Speed>0)&&game.Cars.Exists(c=>c.Y>street.Top&&c.Y<street.Bottom&&c.Speed<0),"traffic activates in both directions: "+street.Name,log);}
+    game=new Game(1,44);for(int i=0;i<200;i++){game.X=220;game.Y=CityMap.Streets[30].Top+16+(i%2==0?899:901);game.Update(.01f,0,0);}
+    Check(game.Cars.Count<150,"crossing activation boundary repeatedly cannot duplicate traffic",log);
     var other=new Game(2,456);Check(other.Cars[0].X!=new Game(2,123).Cars[0].X,"new seeds change traffic",log);
     var easy=new Game(0,42);var hard=new Game(2,42);Check(Math.Abs(hard.Cars[0].Speed)>Math.Abs(easy.Cars[0].Speed),"difficulty changes speed",log);
-    game=new Game(1,12);WalkRoute(game);Check(game.Result==Outcome.Won&&game.CompletedRoads==5&&game.Time>20,"entire marked walking route is traversable without teleporting",log);
+    game=new Game(1,12);WalkRoute(game);Check(game.Result==Outcome.Won&&game.CompletedRoads==CityMap.Streets.Length&&game.Time>=1200,"entire marked walking route is traversable without teleporting",log);
+    log.AppendLine("INFO full-speed route, traffic removed: "+Game.Duration(game.Time));
     Directory.CreateDirectory(folder);string path=Path.Combine(folder,"settings.xml");
     var settings=new Settings{Sound=false,Difficulty=2,Width=1111,Height=777,Wins=3,Maximized=true};Check(settings.Save(path),"settings initial save",log);
     settings.Wins=4;Check(settings.Save(path),"settings atomic replacement",log);
@@ -69,11 +75,11 @@ namespace QuietCrossing {
      renderer.Render(g,game,CameraMode.FirstPerson,0,colors,false,false);long first=Digest(image);
      renderer.Render(g,game,CameraMode.ThirdPerson,0,colors,false,false);Check(Digest(image)!=first,"first and third person have distinct projections",log);
      renderer.Render(g,game,CameraMode.FirstPerson,-1.25f,colors,false,false);Check(Digest(image)!=first,"looking sideways changes the perspective",log);
-     game.Y=1100;renderer.Render(g,game,CameraMode.FirstPerson,0,colors,true,false);Check(Digest(image)!=first,"camera follows movement across road",log);
+     game.Y=CityMap.Start.Y-400;renderer.Render(g,game,CameraMode.FirstPerson,0,colors,true,false);Check(Digest(image)!=first,"camera follows movement across road",log);
      game.Y=CityMap.Start.Y;renderer.Render(g,game,CameraMode.FirstPerson,0,colors,false,false);Check(Digest(image)==first,"rendering is deterministic and does not advance simulation",log);
      game.Cars.Clear();game.Cars.Add(new Car(game.X,game.Y-1,60,40,0));
      foreach(CameraMode mode in new CameraMode[]{CameraMode.FirstPerson,CameraMode.ThirdPerson})
-      foreach(float y in new float[]{1350,1200,980,720,460,240,92})foreach(float angle in new float[]{-1.25f,0,1.25f}) {
+      foreach(float y in new float[]{CityMap.Start.Y,CityMap.Streets[0].Top,CityMap.Streets[20].Top,CityMap.Streets[40].Top,CityMap.Streets[59].Top,92})foreach(float angle in new float[]{-1.25f,0,1.25f}) {
        game.Y=y;renderer.Render(g,game,mode,angle,colors,true,false);
       }
      Check(game.Time==0&&game.Result==Outcome.Playing,"near-plane clipping across crossing never changes game state",log);
