@@ -63,21 +63,6 @@ namespace QuietCrossing {
    Box(x-13,y-10,19,x+16,y+15,35,Color.FromArgb(65,108,85));
    Box(x-9,y-6,35,x+12,y+11,44,Color.FromArgb(110,151,106));
   }
-  void DrawCar(Car car,Color color) {
-   float x=car.X,y=car.Y,w=car.Width;
-   Ground(x-w/2-1,y-9,x+w/2+2,y+10,.18f,Color.FromArgb(50,66,64));
-   foreach(float axle in new float[]{x-w/2+6,x+w/2-6}) {
-    Box(axle-3,y-9,1,axle+3,y-6,6,Ink);Box(axle-3,y+6,1,axle+3,y+9,6,Ink);
-   }
-   Box(x-w/2,y-7,4,x+w/2,y+7,11,color);
-   Box(x-w*.23f,y-6,11,x+w*.23f,y+6,17,Color.FromArgb(64,93,100));
-   Box(x-w*.15f,y-6.2f,11,x+w*.15f,y+6.2f,17,color);
-   Box(x-w*.25f,y-6.5f,17,x+w*.25f,y+6.5f,18,color);
-   float front=x+(car.Speed>0?w/2:-w/2);
-   foreach(float yy in new float[]{y-5,y+3})Box(front-.3f,yy,6,front+.3f,yy+2,9,Cream);
-   float back=x+(car.Speed>0?-w/2:w/2);
-   foreach(float yy in new float[]{y-5,y+3})Box(back-.3f,yy,6,back+.3f,yy+2,8,Color.FromArgb(182,81,69));
-  }
   void DrawPerson(Game game,Color shirt,bool walking,bool lost,float facing) {
    float x=game.X,y=game.Y;
    Ground(x-7,y-4,x+7,y+5,.2f,Color.FromArgb(111,139,105));

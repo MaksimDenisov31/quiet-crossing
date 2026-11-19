@@ -11,7 +11,7 @@ namespace QuietCrossing {
   static extern bool PostMessage(IntPtr handle,int message,IntPtr wParam,IntPtr lParam);
   internal static void Post(IntPtr handle,int message,int wParam,int lParam){if(!PostMessage(handle,message,new IntPtr(wParam),new IntPtr(lParam)))throw new Exception("Cannot post input to test window");}
  }
- static class Tests {
+ static partial class Tests {
   internal static Game CrosswalkCase(Street street,float x,float y){
    var game=new Game(1,91);game.X=street.CrossX;game.Y=street.Bottom+20;game.Update(.001f,0,0);game.Cars.Clear();game.X=x;game.Y=y;return game;
   }
@@ -99,6 +99,7 @@ namespace QuietCrossing {
     var easy=new Game(0,42);var hard=new Game(2,42);Check(Math.Abs(hard.Cars[0].Speed)>Math.Abs(easy.Cars[0].Speed),"difficulty changes speed",log);
     game=new Game(1,12);WalkRoute(game);Check(game.Result==Outcome.Won&&game.CompletedRoads==CityMap.Streets.Length&&game.Time>=1200,"entire marked walking route is traversable without teleporting",log);
     log.AppendLine("INFO full-speed route, traffic removed: "+Game.Duration(game.Time));
+    TrafficChecks(log);
     Directory.CreateDirectory(folder);string path=Path.Combine(folder,"settings.xml");
     var settings=new Settings{Sound=false,Difficulty=2,Width=1111,Height=777,Wins=3,Maximized=true};Check(settings.Save(path),"settings initial save",log);
     settings.Wins=4;Check(settings.Save(path),"settings atomic replacement",log);

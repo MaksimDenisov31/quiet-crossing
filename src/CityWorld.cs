@@ -4,6 +4,7 @@ using System.Drawing;
 namespace QuietCrossing {
  sealed partial class PixelWorld {
   void DrawCity(Game game,Color[] colors){
+   trafficTime=game.Time;
    Ground(-1800,-1600,CityMap.Width+1800,CityMap.Height+2000,-.05f,Grass);
    for(int i=1;i<CityMap.Path.Length;i++){
     MapPoint a=CityMap.Path[i-1],b=CityMap.Path[i];
@@ -28,13 +29,14 @@ namespace QuietCrossing {
     Ground(-1600,bottom,1800,bottom+20,.05f,Color.FromArgb(194,197,171));
     Ground(-1600,top-3,1800,top,.1f,Cream);Ground(-1600,bottom,1800,bottom+3,.1f,Cream);
     for(int lane=1;lane<street.Lanes;lane++)for(int xx=-400;xx<1040;xx+=29)if(xx<x-36||xx>x+30)
-     Ground(xx,top+lane*32,xx+15,top+lane*32+1,.12f,lane==street.Lanes/2?Color.FromArgb(203,181,119):Color.FromArgb(122,135,130));
+     Ground(xx,top+lane*32,xx+15,top+lane*32+1,.12f,lane==(street.Lanes+1)/2?Color.FromArgb(203,181,119):Color.FromArgb(122,135,130));
     for(float y=top+5;y<bottom-4;y+=16)Ground(street.CrosswalkLeft,y,street.CrosswalkRight,y+9,.15f,Cream);
     Ground(x-22,top-12,x+22,top-6,.15f,Color.FromArgb(216,196,128));Ground(x-22,bottom+8,x+22,bottom+14,.15f,Color.FromArgb(216,196,128));
     foreach(float xx in new float[]{x-43,x+42}){
      Box(xx,top-10,0,xx+2,top-8,30,Ink);Box(xx-6,top-11,23,xx+8,top-9,36,Color.FromArgb(102,151,165));
      Box(xx-3,top-8.9f,26,xx+5,top-8.7f,33,Cream);Box(xx,top-8.6f,27,xx+2,top-8.4f,32,Ink);
     }
+    DrawRoadSignals(street,game);
    }
    for(int i=1;i<CityMap.Path.Length;i++){
     MapPoint a=CityMap.Path[i-1],b=CityMap.Path[i];float distance=CityMap.Distance(a,b);

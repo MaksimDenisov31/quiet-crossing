@@ -6,11 +6,15 @@ namespace QuietCrossing {
  public enum LossReason { None, Car, OutsideCrosswalk }
  public sealed class Car {
   public float X,Y,Speed,Width;
-  public int Color;
-  public Car(float x,float y,float speed,float width,int color){X=x;Y=y;Speed=speed;Width=width;Color=color;}
+  public float CruiseSpeed,Depth=14;
+  public VehicleKind Kind=VehicleKind.Sedan;
+  public Street Road;public int ConvoyId;
+  public int Color;public int Direction{get{return CruiseSpeed>=0?1:-1;}}
+  public Car(float x,float y,float speed,float width,int color){X=x;Y=y;Speed=speed;CruiseSpeed=speed;Width=width;Color=color;}
+  public Car(float x,float y,float speed,VehicleKind kind,int color):this(x,y,speed,Vehicles.Spec(kind).Length,color){Kind=kind;Depth=Vehicles.Spec(kind).Depth;}
  }
- sealed class TrafficLane {public float Y,Speed,Next,Pace;public bool Active;}
- public sealed class Game {
+ sealed class TrafficLane {public float Y,Speed,Next,Pace;public bool Active;public Street Road;public int ConvoyStep=-1,ConvoyId;}
+ public sealed partial class Game {
   public const float MoveSpeed=64;
   public const float BodyHalfWidth=7,FootDepth=6;
   double positionX=CityMap.Start.X,positionY=CityMap.Start.Y,elapsed;
@@ -38,12 +42,10 @@ namespace QuietCrossing {
    Difficulty=difficulty;random=new Random(seed);
    foreach(Street street in CityMap.Streets)for(int i=0;i<street.Lanes;i++) {
     float speed=(42+Difficulty*17+(float)random.NextDouble()*18)*street.Pace*(i<(street.Lanes+1)/2?1:-1);
-    var lane=new TrafficLane{Y=street.Top+16+i*32,Speed=speed,Pace=street.Pace,Next=.4f+(float)random.NextDouble()*1.8f};
+    var lane=new TrafficLane{Y=street.Top+16+i*32,Speed=speed,Pace=street.Pace,Next=.4f+(float)random.NextDouble()*1.8f,Road=street};
     lanes.Add(lane);if(Math.Abs(lane.Y-Y)<900)Activate(lane);
    }
   }
-  void Spawn(TrafficLane lane,float x){Cars.Add(new Car(x,lane.Y,lane.Speed,random.Next(4)==0?40:29,random.Next(5)));}
-  void Activate(TrafficLane lane){lane.Active=true;float initial=20+(float)random.NextDouble()*280;Spawn(lane,initial);Spawn(lane,initial+420);Spawn(lane,initial+840);}
   public static string Duration(double seconds){int value=(int)seconds;return (value/60).ToString("00")+":"+(value%60).ToString("00");}
   public void Update(float dt,float dx,float dy) {
    if(Result!=Outcome.Playing)return;
@@ -52,16 +54,16 @@ namespace QuietCrossing {
    for(int s=0;s<steps&&Result==Outcome.Playing;s++) {
     elapsed+=step;
     double nx=Math.Max(12,Math.Min(CityMap.Width-12,positionX+dx*MoveSpeed*(double)step));if(CityMap.CanStand((float)nx,Y))positionX=nx;
-    double ny=Math.Max(24,Math.Min(CityMap.Height-12,positionY+dy*MoveSpeed*(double)step));if(CityMap.CanStand(X,(float)ny))positionY=ny;
+    double ny=Math.Max(24,Math.Min(CityMap.Height-12,positionY+dy*MoveSpeed*(double)step));if(CityMap.CanStand(X,(float)ny)&&CanEnterSignalRoad(positionY,ny))positionY=ny;
     foreach(TrafficLane lane in lanes) {
      if(Math.Abs(lane.Y-Y)>900){if(lane.Active){float oldY=lane.Y;Cars.RemoveAll(c=>c.Y==oldY);lane.Active=false;}continue;}
      if(!lane.Active)Activate(lane);
      lane.Next-=step;
-     if(lane.Next<=0){Spawn(lane,lane.Speed>0?-48:CityMap.Width+48);lane.Next=(1.6f+(float)random.NextDouble()*1.9f)/(1+Difficulty*.24f)/lane.Pace;}
+     if(lane.Next<=0)SpawnNext(lane);
     }
+    AdvanceTraffic(step);
     foreach(Car car in Cars) {
-     car.X+=car.Speed*step;
-     if(X+4>car.X-car.Width/2&&X-4<car.X+car.Width/2&&Y>car.Y-7&&Y-6<car.Y+7){Result=Outcome.Lost;Loss=LossReason.Car;}
+     if(X+4>car.X-car.Width/2&&X-4<car.X+car.Width/2&&Y>car.Y-car.Depth/2&&Y-6<car.Y+car.Depth/2){Result=Outcome.Lost;Loss=LossReason.Car;}
     }
     Cars.RemoveAll(c=>c.X < -90||c.X>CityMap.Width+90||Math.Abs(c.Y-Y)>1000);
     // Sidewalk exits are legal. While feet overlap the roadway, the whole

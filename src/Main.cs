@@ -149,6 +149,7 @@ namespace QuietCrossing {
     Button(g,"Пауза  II",376,13,91,delegate{Go("pause");});
     Rect(g,ink,12,293,456,19);Center(g,settings.Camera==CameraMode.Bird?"WASD / стрелки — идти     M — карта     V — вид     Esc — пауза":mouseCursorFree?"Курсор свободен · Tab или щелчок по сцене — вернуть обзор":"WASD — идти   Мышь — поворот   Q/E — взгляд   Tab — курсор   Esc — пауза",296,9,cream);
     DrawRouteHud(g);
+    DrawSignalHud(g);
     if(watch.Elapsed.TotalSeconds<crosswalkNoticeUntil){Rect(g,ink,45,273,338,16);TextAt(g,"Вышел за зебру — новая попытка с точки А",54,276,9,cream,true);}
     return;
    }
@@ -161,7 +162,7 @@ namespace QuietCrossing {
     Button(g,"Настройки",151,201,178,delegate{returnPage="menu";Go("settings");});
     Button(g,"Выход",151,235,178,Close);
     Center(g,"WASD / стрелки • Esc — пауза",282,9,mint);
-    TextAt(g,"v1.6.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
+    TextAt(g,"v1.7.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
    } else if(page=="camera") {
     Center(g,"ВЫБЕРИ ВИД",35,24,cream,true);
     Center(g,"360 переходов · короткие тротуары · свободный поворот",72,10,mint);
@@ -203,10 +204,10 @@ namespace QuietCrossing {
   void CapturePreviews() {
    Directory.CreateDirectory("docs");
    EndMouseTurn();settings=new Settings{Sound=false};focus=-1;mouse=new PointF(-1,-1);keys.Clear();
-   foreach(string p in new string[]{"menu","camera","play","settings","pause","lost","won","map","map-local","city-middle","first-person","third-person","look-left","look-right","first-person-down","free-cursor","first-person-road","third-person-road","first-person-right","third-person-right","crosswalk-restart"}) {
-    bool firstView=p.StartsWith("first-person")||p=="look-left"||p=="look-right"||p=="free-cursor",thirdView=p.StartsWith("third-person");
+   foreach(string p in new string[]{"menu","camera","play","settings","pause","lost","won","map","map-local","city-middle","first-person","third-person","look-left","look-right","first-person-down","free-cursor","first-person-road","third-person-road","first-person-right","third-person-right","crosswalk-restart","signal-red","signal-yellow","signal-green","signal-first","signal-third","traffic-first","traffic-third","motorcade"}) {
+    bool firstView=p.StartsWith("first-person")||p=="look-left"||p=="look-right"||p=="free-cursor"||p=="signal-first"||p=="traffic-first",thirdView=p.StartsWith("third-person")||p=="signal-third"||p=="traffic-third";
     settings.Camera=firstView?CameraMode.FirstPerson:thirdView?CameraMode.ThirdPerson:CameraMode.Bird;
-    page=firstView||thirdView||p=="city-middle"||p=="crosswalk-restart"?"play":p;
+    page=firstView||thirdView||p=="city-middle"||p=="crosswalk-restart"||p=="motorcade"||p.StartsWith("signal-")?"play":p;
     crosswalkNoticeUntil=p=="crosswalk-restart"?watch.Elapsed.TotalSeconds+2.5:0;
     mapLocal=p=="map-local";if(mapLocal)page="map";
     yaw=0;peekYaw=p=="look-left"?-1.2f:p=="look-right"?1.2f:0;lookPitch=p=="first-person-down"?.45f:0;mouseCursorFree=p=="free-cursor";
@@ -214,9 +215,13 @@ namespace QuietCrossing {
     if(p=="first-person-right"||p=="third-person-right"){Tests.VisitRoads(game,1);yaw=(float)Math.PI/2;}
     if(p=="city-middle"){int half=CityMap.Streets.Length/2;Tests.VisitRoads(game,half);Street middle=CityMap.Streets[half];game.X=middle.CrossX;game.Y=middle.Bottom+28;game.Cars.Add(new Car(middle.CrossX+60,middle.Top+16,60,29,0));}
     if(p=="lost")game.Result=Outcome.Lost;if(p=="won")Tests.WalkRoute(game);
+    if(p.StartsWith("signal-"))SetSignalPreview(p);
+    if(p.StartsWith("traffic-"))SetTrafficPreview();
+    if(p=="motorcade")SetMotorcadePreview();
     using(Graphics g=Graphics.FromImage(scene))Draw(g);
     using(var output=new Bitmap(960,640))using(Graphics g=Graphics.FromImage(output)){g.InterpolationMode=InterpolationMode.NearestNeighbor;g.PixelOffsetMode=PixelOffsetMode.Half;g.DrawImage(scene,0,0,960,640);output.Save("docs/"+p+".png",ImageFormat.Png);}
    }
+   CaptureVehicleGallery();Capture3DVehicleGallery();
   }
   public static int RunUiTests() {
    var log=new System.Text.StringBuilder();
@@ -321,7 +326,16 @@ namespace QuietCrossing {
       if(w.settings.Camera!=mode||w.settings.Difficulty!=difficulty||w.settings.Wins!=beforeWins||w.crosswalkNoticeUntil<=w.watch.Elapsed.TotalSeconds)throw new Exception("Crosswalk restart must preserve settings and explain cause: "+mode);render();
      }
      log.AppendLine("PASS all three cameras: partial zebra overlap continues, full exit restarts entire route at A, settings preserved and reason shown");
-     w.CapturePreviews();w.Close();log.AppendLine("PASS twenty-one rendered screen previews");
+     foreach(CameraMode mode in Enum.GetValues(typeof(CameraMode))){
+      w.Go("menu");click("Играть  →");click(CameraName(mode));w.SetSignalPreview("signal-red");Street regulated=CityMap.Streets[9];w.game.Y=regulated.Bottom+Game.FootDepth;float curb=w.game.Y;Game same=w.game;
+      w.OnKeyDown(new KeyEventArgs(Keys.W));w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.W));
+      if(w.game!=same||w.game.Y!=curb||w.page!="play")throw new Exception("Red signal must hold without a restart: "+mode);
+      Tests.AdvanceSignal(w.game,regulated,28);w.OnKeyDown(new KeyEventArgs(Keys.W));int guard=0;
+      while(w.game==same&&w.page=="play"&&w.game.Y>regulated.Top-20&&guard++<70){w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);}
+      w.OnKeyUp(new KeyEventArgs(Keys.W));if(w.game!=same||w.page!="play"||w.game.CompletedRoads!=10)throw new Exception("Green must allow a complete controlled crossing: "+mode);render();
+     }
+     log.AppendLine("PASS all cameras: red pedestrian signal waits on curb, green permits complete crossing with live queued traffic");
+     w.CapturePreviews();w.Close();log.AppendLine("PASS twenty-nine scene previews and two vehicle galleries");
     }
     File.WriteAllText("ui-test-results.txt",log.ToString());return 0;
    } catch(Exception ex) {File.WriteAllText("ui-test-results.txt",log+"FAIL "+ex);return 1;}

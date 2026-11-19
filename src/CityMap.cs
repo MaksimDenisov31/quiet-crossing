@@ -4,12 +4,13 @@ using System.Collections.Generic;
 namespace QuietCrossing {
  public struct MapPoint {public readonly float X,Y;public MapPoint(float x,float y){X=x;Y=y;}}
  public sealed class Street {
-  public readonly float Top,CrossX,Pace;public readonly int Lanes,District;public readonly string Name;
+  public readonly float Top,CrossX,Pace;public readonly int Lanes,District,Index;public readonly string Name;
+  public bool HasLights{get{return Index%20==((Index/20)*7+9)%20;}}
   public float Bottom{get{return Top+Lanes*32;}}
   public float CrosswalkLeft{get{return CrossX-CityMap.CrosswalkHalfWidth;}}
   public float CrosswalkRight{get{return CrossX+CityMap.CrosswalkHalfWidth;}}
   public MapPoint Exit{get{return new MapPoint(CrossX,Top-35);}}
-  public Street(string name,float top,int lanes,float crossX,float pace,int district){Name=name;Top=top;Lanes=lanes;CrossX=crossX;Pace=pace;District=district;}
+  public Street(string name,float top,int lanes,float crossX,float pace,int district,int index){Name=name;Top=top;Lanes=lanes;CrossX=crossX;Pace=pace;District=district;Index=index;}
  }
  public sealed class House {
   public readonly float X,Y,Width,Depth,Height;
@@ -34,7 +35,7 @@ namespace QuietCrossing {
    var roads=new List<Street>();var route=new List<MapPoint>();var houses=new List<House>();var trees=new List<MapPoint>();route.Add(Start);
    for(int i=0;i<Districts.Length*StreetsPerDistrict;i++){
     int district=i/StreetsPerDistrict,k=i%5;float top=FirstStreetTop-i*StreetSpacing;
-    var road=new Street(names[k]+" "+(i%StreetsPerDistrict+1)+" · "+(district+1),top,laneCounts[k],crossings[k],paces[k],district);roads.Add(road);
+    var road=new Street(names[k]+" "+(i%StreetsPerDistrict+1)+" · "+(district+1),top,laneCounts[k],crossings[k],paces[k],district,i);roads.Add(road);
     if(i>0)route.Add(new MapPoint(road.CrossX,roads[i-1].Exit.Y));route.Add(road.Exit);
     // Buildings avoid every crossing corridor, so the marked route remains open.
     for(int col=0;col<2;col++)houses.Add(new House(col==0?55:505,top-25,60+(i+col)%3*8,18,18+(i+col)%3*7));

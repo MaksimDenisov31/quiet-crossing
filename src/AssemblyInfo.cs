@@ -3,5 +3,5 @@ using System.Reflection;
 [assembly: AssemblyDescription("Минималистичная пиксельная игра о переходе дороги")]
 [assembly: AssemblyCompany("MaksimDenisov31")]
 [assembly: AssemblyProduct("Quiet Crossing")]
-[assembly: AssemblyVersion("1.6.0.0")]
-[assembly: AssemblyFileVersion("1.6.0.0")]
+[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyFileVersion("1.7.0.0")]

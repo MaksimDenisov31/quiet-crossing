@@ -1,4 +1,4 @@
-#define AppVersion "1.6.0"
+#define AppVersion "1.7.0"
 [Setup]
 AppId=QuietCrossing.MaksimDenisov31
 AppName=Тихий переход
@@ -14,7 +14,7 @@ UninstallDisplayIcon={app}\QuietCrossing.exe
 SetupIconFile=..\assets\app.ico
 OutputDir=..\installer-output
 OutputBaseFilename=QuietCrossing-Setup-{#AppVersion}
-VersionInfoVersion=1.6.0.0
+VersionInfoVersion=1.7.0.0
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

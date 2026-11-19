@@ -27,7 +27,7 @@ namespace QuietCrossing {
     Rect(g,cream,0,road.Top-3,CityMap.Width,3);Rect(g,cream,0,road.Bottom,CityMap.Width,3);
     Rect(g,Color.FromArgb(65,78,80),0,road.Top,CityMap.Width,road.Bottom-road.Top);
     for(int lane=1;lane<road.Lanes;lane++)for(int x=0;x<CityMap.Width;x+=29)if(x<road.CrossX-36||x>road.CrossX+30)
-     Rect(g,lane==road.Lanes/2?Color.FromArgb(203,181,119):Color.FromArgb(122,135,130),x,road.Top+lane*32,15,1);
+     Rect(g,lane==(road.Lanes+1)/2?Color.FromArgb(203,181,119):Color.FromArgb(122,135,130),x,road.Top+lane*32,15,1);
     for(float y=road.Top+5;y<road.Bottom-4;y+=16)Rect(g,cream,road.CrosswalkLeft,y,CityMap.CrosswalkHalfWidth*2,9);
     foreach(float y in new float[]{road.Top-12,road.Bottom+8}){
      Rect(g,Color.FromArgb(216,196,128),road.CrossX-22,y,44,6);
@@ -37,6 +37,7 @@ namespace QuietCrossing {
      Rect(g,ink,x,road.Top-28,2,25);Rect(g,Color.FromArgb(102,151,165),x-6,road.Top-32,14,13);
      Rect(g,cream,x-3,road.Top-29,8,7);Rect(g,ink,x,road.Top-28,2,5);
     }
+    DrawRoadSignals(g,road);
    }
    for(int i=1;i<CityMap.Path.Length;i++){
     MapPoint a=CityMap.Path[i-1],b=CityMap.Path[i];float length=CityMap.Distance(a,b);
@@ -61,13 +62,7 @@ namespace QuietCrossing {
     TextAt(g,street.Name,p.X-55,p.Y-32,8,ink,true);
    }
    DrawEndpoint(g,CityMap.Start,"А · СТАРТ");DrawEndpoint(g,CityMap.Finish,"Б · ФИНИШ");
-   foreach(Car c in game.Cars){
-    if(c.Y<oy-20||c.Y>oy+340)continue;
-    int x=(int)(c.X-c.Width/2),y=(int)c.Y,w=(int)c.Width;Color color=carColors[c.Color];
-    Rect(g,Color.FromArgb(47,61,63),x+1,y+6,w,5);Rect(g,ink,x+4,y-10,6,3);Rect(g,ink,x+w-10,y-10,6,3);Rect(g,ink,x+4,y+7,6,3);Rect(g,ink,x+w-10,y+7,6,3);
-    Rect(g,color,x,y-7,w,15);Rect(g,color,x+2,y-9,w-4,19);Rect(g,Color.FromArgb(64,93,100),x+8,y-6,w-16,12);Rect(g,color,x+12,y-7,w-24,14);
-    Rect(g,Color.FromArgb(175,207,200),c.Speed>0?x+w-9:x+5,y-5,3,10);Rect(g,cream,c.Speed>0?x+w-2:x,y-5,2,3);Rect(g,cream,c.Speed>0?x+w-2:x,y+3,2,3);
-   }
+   foreach(Car c in game.Cars)if(c.Y>oy-25&&c.Y<oy+345)DrawVehicle(g,c,game.Time);
    Person(g,game.X,game.Y,page=="lost");g.Restore(state);
   }
   void DrawEndpoint(Graphics g,MapPoint p,string label){
@@ -86,6 +81,7 @@ namespace QuietCrossing {
     if(road.Bottom<viewTop||road.Top>viewTop+viewHeight)continue;
     Rect(g,Color.FromArgb(65,78,80),ox,oy+(road.Top-viewTop)*scale,width,(road.Bottom-road.Top)*scale);
     Rect(g,cream,ox+road.CrosswalkLeft*scale,oy+(road.Top-viewTop)*scale,CityMap.CrosswalkHalfWidth*2*scale,(road.Bottom-road.Top)*scale);
+    if(road.HasLights){SignalState signal=TrafficSignals.At(road,game.Time);Rect(g,signal.PedestrianGreen?SignalPaint.Green:SignalPaint.Red,ox+(road.CrosswalkRight+10)*scale,oy+(road.Bottom-viewTop)*scale,3,3);}
    }
    foreach(House h in CityMap.Houses)if(h.Y+h.Depth>=viewTop&&h.Y<=viewTop+viewHeight)Rect(g,Color.FromArgb(98,129,103),ox+h.X*scale,oy+(h.Y-viewTop)*scale,h.Width*scale,h.Depth*scale);
    using(var pen=new Pen(Color.FromArgb(234,223,170),detailed?2:1))for(int i=1;i<CityMap.Path.Length;i++){
@@ -136,6 +132,7 @@ namespace QuietCrossing {
    for(int i=listStart;i<Math.Min(CityMap.Streets.Length,listStart+5);i++){
     Color c=i<game.CompletedRoads?mint:i==game.CompletedRoads?Color.FromArgb(246,201,104):Color.FromArgb(144,165,145);
     TextAt(g,(i<game.CompletedRoads?"✓ ":(i+1)+". ")+CityMap.Streets[i].Name,233,109+(i-listStart)*22,9,c,i==game.CompletedRoads);
+    if(CityMap.Streets[i].HasLights){SignalState light=TrafficSignals.At(CityMap.Streets[i],game.Time);Rect(g,light.PedestrianGreen?SignalPaint.Green:SignalPaint.Red,447,111+(i-listStart)*22,5,7);}
    }
    TextAt(g,"Короткие тротуары · 2–5 полос",233,221,9,mint);
    Button(g,mapLocal?"Весь путь":"Район",233,253,107,delegate{mapLocal=!mapLocal;});
