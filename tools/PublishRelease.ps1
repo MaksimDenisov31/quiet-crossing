@@ -30,12 +30,12 @@ if ($Release) {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release commit.' }
     $sha = $revision.Trim()
     $body = @{
-        tag_name='v1.3.0'; target_commitish=$sha; name='Тихий переход 1.3.0 — большой город на 20+ минут'; draft=$false; prerelease=$false
-        body="Город расширен до 12 районов и 60 переходов.`n`n- Даже со срезами и без препятствий путь не может занять меньше 21 минуты 18 секунд при максимальной скорости.`n- По размеченным дорожкам без машин и остановок — около 29 минут 20 секунд; длительность подтверждена автоматической симуляцией.`n- Продолжительность достигается длиной маршрута, без ожидания по таймеру.`n- Схема всех районов, местная карта, прогресс и время попытки.`n- Оптимизированы транспорт и отрисовка большой карты; сохранены три камеры и пользовательские настройки.`n`nWASD / стрелки — идти; M — карта; V — вид; Q/E — оглядеться; Esc — пауза; R — повтор. При столкновении маршрут начинается с А. Windows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
+        tag_name='v1.4.0'; target_commitish=$sha; name='Тихий переход 1.4.0 — поворот и дороги без долгих прогулок'; draft=$false; prerelease=$false
+        body="Полноценный поворот и более плотный маршрут с машинами.`n`n- E / стрелка вправо — повернуть направо; Q / влево — налево. Направление сохраняется после отпускания.`n- Удерживать ПКМ и двигать мышь — свободный поворот. W/S идут относительно взгляда, A/D — в стороны.`n- Персонаж в третьем лице также поворачивается; карта, пауза и смена камеры сохраняют направление.`n- Дороги сближены в шесть раз, боковые перемещения между зебрами ограничены 100 единицами. На улицах 2–5 полос.`n- Минимум 20 минут сохранён количеством насыщенных переходов: 360 улиц в 12 районах. По разметке без машин около 27:45; нижняя граница даже со срезами — 21:00.`n- Проверены поворот и отпускание кнопок через настоящую очередь сообщений окна; настройки пользователя сохранены.`n`nM — карта, V — вид, Esc — пауза, R — повтор после столкновения. Windows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
     } | ConvertTo-Json
     $releaseInfo = Invoke-RestMethod -Method Post -Uri "$base/repos/$repo/releases" -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     $upload = $releaseInfo.upload_url -replace '\{.*$', ''
-    foreach ($name in @('QuietCrossing-Setup-1.3.0.exe','QuietCrossing-Portable-1.3.0.zip','SHA256SUMS.txt')) {
+    foreach ($name in @('QuietCrossing-Setup-1.4.0.exe','QuietCrossing-Portable-1.4.0.zip','SHA256SUMS.txt')) {
         $file = Join-Path $project "installer-output\$name"
         $asset = Invoke-RestMethod -Method Post -Uri ($upload + '?name=' + [Uri]::EscapeDataString($name)) -Headers $headers -ContentType 'application/octet-stream' -InFile $file
         Write-Output ($asset.name + ': ' + $asset.browser_download_url)

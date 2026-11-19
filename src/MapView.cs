@@ -57,7 +57,7 @@ namespace QuietCrossing {
     if(p.Y<oy-50||p.Y>oy+370)continue;
     using(var b=new SolidBrush(ink))g.FillEllipse(b,p.X-11,p.Y-11,22,22);
     using(var b=new SolidBrush(color))g.FillEllipse(b,p.X-8,p.Y-8,16,16);
-    TextAt(g,i<game.CompletedRoads?"✓":(i+1).ToString(),p.X-4,p.Y-7,10,ink,true);
+    string marker=i<game.CompletedRoads?"✓":(i+1).ToString();TextAt(g,marker,p.X-marker.Length*2,p.Y-6,marker.Length>2?7:9,ink,true);
     TextAt(g,street.Name,p.X-55,p.Y-32,8,ink,true);
    }
    DrawEndpoint(g,CityMap.Start,"А · СТАРТ");DrawEndpoint(g,CityMap.Finish,"Б · ФИНИШ");
@@ -75,8 +75,8 @@ namespace QuietCrossing {
    TextAt(g,label,p.X-26,p.Y-36,8,ink,true);
   }
   void DrawMapDiagram(Graphics g,RectangleF box,bool detailed){
-   const float viewHeight=2400;
-   float viewTop=Math.Max(0,Math.Min(CityMap.Height-viewHeight,game.Y-1450));
+   const float viewHeight=1200;
+   float viewTop=Math.Max(0,Math.Min(CityMap.Height-viewHeight,game.Y-750));
    float scale=Math.Min(box.Width/CityMap.Width,box.Height/viewHeight);
    float width=CityMap.Width*scale,height=viewHeight*scale;
    float ox=box.X+(box.Width-width)/2,oy=box.Y+(box.Height-height)/2;
@@ -98,6 +98,7 @@ namespace QuietCrossing {
    }
    foreach(MapPoint p in new MapPoint[]{CityMap.Start,CityMap.Finish})if(p.Y>=viewTop&&p.Y<=viewTop+viewHeight)TextAt(g,p.Y==CityMap.Start.Y?"А":"Б",ox+p.X*scale+4,oy+(p.Y-viewTop)*scale-5,8,ink,true);
    Rect(g,ink,ox+game.X*scale-3,oy+(game.Y-viewTop)*scale-3,6,6);Rect(g,cream,ox+game.X*scale-2,oy+(game.Y-viewTop)*scale-2,4,4);
+   if(settings.Camera!=CameraMode.Bird)using(var pen=new Pen(cream,detailed?2:1))g.DrawLine(pen,ox+game.X*scale,oy+(game.Y-viewTop)*scale,ox+game.X*scale+(float)Math.Sin(yaw)*9,oy+(game.Y-viewTop)*scale-(float)Math.Cos(yaw)*9);
    g.Restore(state);
   }
   void DrawCampaignDiagram(Graphics g,RectangleF box){
@@ -118,6 +119,7 @@ namespace QuietCrossing {
    Rect(g,ink,12,48,259,39);
    TextAt(g,"А → Б   "+game.CompletedRoads+" / "+CityMap.Streets.Length+"   "+(int)(game.Progress*100)+"%   "+Game.Duration(game.Time),20,53,9,cream,true);
    TextAt(g,"Далее: "+game.TargetName,20,69,8,mint);
+   if(settings.Camera!=CameraMode.Bird){Rect(g,ink,12,95,101,17);TextAt(g,"Взгляд: "+PlayerControls.Compass(yaw),18,98,8,cream);}
    Rect(g,Color.FromArgb(76,96,85),12,87,259,3);Rect(g,mint,12,87,259*game.Progress,3);
    Rect(g,ink,391,100,81,153);TextAt(g,"Район "+(CityMap.DistrictIndex(game.CompletedRoads)+1)+" / 12",397,105,7,mint);DrawMapDiagram(g,new RectangleF(397,119,69,124),false);
    Button(g,"Карта [M]",391,260,81,OpenMap);
@@ -128,12 +130,13 @@ namespace QuietCrossing {
    if(mapLocal)DrawMapDiagram(g,new RectangleF(32,64,166,205),true);else DrawCampaignDiagram(g,new RectangleF(32,64,166,205));
    int district=CityMap.DistrictIndex(game.CompletedRoads);
    TextAt(g,(district+1)+" / 12 · "+CityMap.Districts[district],233,60,12,cream,true);
-   TextAt(g,Game.Duration(game.Time)+" · "+game.CompletedRoads+" / 60 · "+(int)(game.Progress*100)+"%",233,84,9,mint);
-   for(int i=district*5;i<Math.Min(CityMap.Streets.Length,(district+1)*5);i++){
+   TextAt(g,Game.Duration(game.Time)+" · "+game.CompletedRoads+" / "+CityMap.Streets.Length+" · "+(int)(game.Progress*100)+"%",233,84,9,mint);
+   int listStart=Math.Min(CityMap.Streets.Length-5,game.CompletedRoads/5*5);
+   for(int i=listStart;i<Math.Min(CityMap.Streets.Length,listStart+5);i++){
     Color c=i<game.CompletedRoads?mint:i==game.CompletedRoads?Color.FromArgb(246,201,104):Color.FromArgb(144,165,145);
-    TextAt(g,(i<game.CompletedRoads?"✓ ":(i+1)+". ")+CityMap.Streets[i].Name,233,109+(i%5)*22,10,c,i==game.CompletedRoads);
+    TextAt(g,(i<game.CompletedRoads?"✓ ":(i+1)+". ")+CityMap.Streets[i].Name,233,109+(i-listStart)*22,9,c,i==game.CompletedRoads);
    }
-   TextAt(g,"Даже по прямой: от "+Game.Duration(CityMap.MinimumSeconds),233,221,9,mint);
+   TextAt(g,"Короткие тротуары · 2–5 полос",233,221,9,mint);
    Button(g,mapLocal?"Весь путь":"Район",233,253,107,delegate{mapLocal=!mapLocal;});
    Button(g,"Продолжить",346,253,112,delegate{Go(mapReturn);},true);
    Center(g,"M / Esc — закрыть карту. Игра на паузе.",296,9,mint);

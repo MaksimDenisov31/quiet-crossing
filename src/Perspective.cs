@@ -8,7 +8,7 @@ namespace QuietCrossing {
  // render that same world, including the exact car positions and crossing bounds.
  public sealed partial class Window {
   readonly PixelWorld world=new PixelWorld();
-  float lookAngle;
+  float yaw;
   static string CameraName(CameraMode mode) {
    return mode==CameraMode.FirstPerson?"От первого лица":mode==CameraMode.ThirdPerson?"От третьего лица":"С высоты птичьего полёта";
   }
@@ -16,7 +16,7 @@ namespace QuietCrossing {
    return mode==CameraMode.FirstPerson?"Первое лицо":mode==CameraMode.ThirdPerson?"Третье лицо":"Сверху";
   }
   void DrawPerspective(Graphics g) {
-   world.Render(g,game,settings.Camera,lookAngle,carColors,page=="play"&&keys.Count>0,page=="lost");
+   world.Render(g,game,settings.Camera,yaw,carColors,page=="play"&&keys.Count>0,page=="lost");
    if(settings.Camera==CameraMode.FirstPerson && page=="play") {
     // Small sleeves anchor the eye-level view without hiding the traffic.
     int bob=keys.Count>0?(int)(Math.Sin(game.Time*10)*2):0;
@@ -52,7 +52,7 @@ namespace QuietCrossing {
     for(int x=0;x<W;x++)pixels[y*W+x]=color;
    }
    DrawCity(game,colors);
-   if(third)DrawPerson(game,colors[0],walking,lost);
+   if(third)DrawPerson(game,colors[0],walking,lost,yaw);
    BitmapData data=frame.LockBits(new Rectangle(0,0,W,H),ImageLockMode.WriteOnly,PixelFormat.Format32bppArgb);
    try {Marshal.Copy(pixels,0,data.Scan0,pixels.Length);}finally{frame.UnlockBits(data);}
    graphics.DrawImageUnscaled(frame,0,0);
@@ -78,17 +78,23 @@ namespace QuietCrossing {
    float back=x+(car.Speed>0?-w/2:w/2);
    foreach(float yy in new float[]{y-5,y+3})Box(back-.3f,yy,6,back+.3f,yy+2,8,Color.FromArgb(182,81,69));
   }
-  void DrawPerson(Game game,Color shirt,bool walking,bool lost) {
+  void DrawPerson(Game game,Color shirt,bool walking,bool lost,float facing) {
    float x=game.X,y=game.Y;
    Ground(x-7,y-4,x+7,y+5,.2f,Color.FromArgb(111,139,105));
-   if(lost){Box(x-10,y-4,1,x+3,y+4,6,shirt);Box(x+3,y-3,1,x+10,y+3,7,Cream);return;}
+   if(lost){AvatarBox(game,facing,x-10,y-4,1,x+3,y+4,6,shirt);AvatarBox(game,facing,x+3,y-3,1,x+10,y+3,7,Cream);return;}
    float stride=walking?(float)Math.Sin(game.Time*12)*2:0;
-   Box(x-4,y-2+stride,0,x-1,y+3+stride,8,Ink);Box(x+1,y-2-stride,0,x+4,y+3-stride,8,Ink);
-   Box(x-5,y-3,8,x+5,y+3,17,shirt);
-   Box(x-7,y-2-stride,7,x-5,y+2-stride,14,Color.FromArgb(244,193,146));
-   Box(x+5,y-2+stride,7,x+7,y+2+stride,14,Color.FromArgb(244,193,146));
-   Box(x-4,y-3,17,x+4,y+3,24,Color.FromArgb(244,193,146));
-   Box(x-4.5f,y-3.5f,22,x+4.5f,y+3.5f,26,Ink);Box(x-4.5f,y+1,19,x+4.5f,y+3.5f,23,Ink);
+   AvatarBox(game,facing,x-4,y-2+stride,0,x-1,y+3+stride,8,Ink);AvatarBox(game,facing,x+1,y-2-stride,0,x+4,y+3-stride,8,Ink);
+   AvatarBox(game,facing,x-5,y-3,8,x+5,y+3,17,shirt);
+   AvatarBox(game,facing,x-7,y-2-stride,7,x-5,y+2-stride,14,Color.FromArgb(244,193,146));
+   AvatarBox(game,facing,x+5,y-2+stride,7,x+7,y+2+stride,14,Color.FromArgb(244,193,146));
+   AvatarBox(game,facing,x-4,y-3,17,x+4,y+3,24,Color.FromArgb(244,193,146));
+   AvatarBox(game,facing,x-4.5f,y-3.5f,22,x+4.5f,y+3.5f,26,Ink);AvatarBox(game,facing,x-4.5f,y+1,19,x+4.5f,y+3.5f,23,Ink);
+  }
+  Vertex AvatarVertex(Game game,float facing,float x,float y,float h){float dx=x-game.X,dy=y-game.Y,s=(float)Math.Sin(facing),c=(float)Math.Cos(facing);return new Vertex(game.X+dx*c-dy*s,game.Y+dx*s+dy*c,h);}
+  void AvatarBox(Game game,float facing,float x1,float y1,float h1,float x2,float y2,float h2,Color color){
+   Vertex a=AvatarVertex(game,facing,x1,y1,h1),b=AvatarVertex(game,facing,x2,y1,h1),c=AvatarVertex(game,facing,x2,y2,h1),d=AvatarVertex(game,facing,x1,y2,h1);
+   Vertex aa=AvatarVertex(game,facing,x1,y1,h2),bb=AvatarVertex(game,facing,x2,y1,h2),cc=AvatarVertex(game,facing,x2,y2,h2),dd=AvatarVertex(game,facing,x1,y2,h2);
+   Quad(aa,bb,cc,dd,color);Quad(a,b,bb,aa,Shade(color,.82f));Quad(d,c,cc,dd,Shade(color,.94f));Quad(a,d,dd,aa,Shade(color,.73f));Quad(b,c,cc,bb,Shade(color,.88f));
   }
   static Color Shade(Color c,float factor) {return Color.FromArgb((int)(c.R*factor),(int)(c.G*factor),(int)(c.B*factor));}
   void Ground(float x1,float y1,float x2,float y2,float h,Color c) {

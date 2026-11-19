@@ -7,7 +7,7 @@ namespace QuietCrossing {
    Ground(-1800,-1600,CityMap.Width+1800,CityMap.Height+2000,-.05f,Grass);
    for(int i=1;i<CityMap.Path.Length;i++){
     MapPoint a=CityMap.Path[i-1],b=CityMap.Path[i];
-    if(Math.Max(a.Y,b.Y)<cameraY-1000||Math.Min(a.Y,b.Y)>cameraY+400)continue;
+    if(Math.Max(a.Y,b.Y)<cameraY-1000||Math.Min(a.Y,b.Y)>cameraY+1000)continue;
     if(a.Y==b.Y)Ground(Math.Min(a.X,b.X)-15,a.Y-15,Math.Max(a.X,b.X)+15,a.Y+15,.025f,Color.FromArgb(199,195,160));
     else {
      float cursor=Math.Min(a.Y,b.Y)-15,end=Math.Max(a.Y,b.Y)+15;
@@ -21,7 +21,7 @@ namespace QuietCrossing {
     }
    }
    foreach(Street street in CityMap.Streets){
-    if(street.Bottom<cameraY-1000||street.Top>cameraY+400)continue;
+    if(street.Bottom<cameraY-1000||street.Top>cameraY+1000)continue;
     float top=street.Top,bottom=street.Bottom,x=street.CrossX;
     Ground(-1600,top,1800,bottom,0,Road);
     Ground(-1600,top-20,1800,top,.05f,Color.FromArgb(194,197,171));
@@ -38,7 +38,7 @@ namespace QuietCrossing {
    }
    for(int i=1;i<CityMap.Path.Length;i++){
     MapPoint a=CityMap.Path[i-1],b=CityMap.Path[i];float distance=CityMap.Distance(a,b);
-    if(Math.Max(a.Y,b.Y)<cameraY-1000||Math.Min(a.Y,b.Y)>cameraY+400)continue;
+    if(Math.Max(a.Y,b.Y)<cameraY-1000||Math.Min(a.Y,b.Y)>cameraY+1000)continue;
     for(float t=0;t<distance;t+=14){float x=a.X+(b.X-a.X)*t/distance,y=a.Y+(b.Y-a.Y)*t/distance;if(!CityMap.OnRoad(y))Ground(x-1,y-1,x+2,y+2,.16f,Cream);}
    }
    for(int i=0;i<CityMap.Houses.Length;i++){

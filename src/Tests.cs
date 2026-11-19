@@ -6,6 +6,11 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 
 namespace QuietCrossing {
+ static class NativeTestInput {
+  [System.Runtime.InteropServices.DllImport("user32.dll",EntryPoint="PostMessageW",SetLastError=true)]
+  static extern bool PostMessage(IntPtr handle,int message,IntPtr wParam,IntPtr lParam);
+  internal static void Post(IntPtr handle,int message,int wParam,int lParam){if(!PostMessage(handle,message,new IntPtr(wParam),new IntPtr(lParam)))throw new Exception("Cannot post input to test window");}
+ }
  static class Tests {
   internal static void VisitRoads(Game game,int count){
    while(game.CompletedRoads<count){MapPoint p=game.Target;game.X=p.X;game.Y=p.Y;game.Cars.Clear();int before=game.CompletedRoads;game.Update(.001f,0,0);if(game.CompletedRoads==before)throw new Exception("Route setup failed");}
@@ -30,9 +35,20 @@ namespace QuietCrossing {
    var log=new StringBuilder();string folder=Path.Combine(Path.GetTempPath(),"QuietCrossingTests-"+Guid.NewGuid().ToString("N"));
    try {
     var game=new Game(1,42);game.Update(1,0,0);Check(game.Result==Outcome.Playing&&game.Y==CityMap.Start.Y,"point A is safe",log);
-    Check(CityMap.Streets.Length==60&&CityMap.Districts.Length==12,"map has twelve districts and sixty streets",log);
+    Check(CityMap.Streets.Length==360&&CityMap.Districts.Length==12,"map has twelve dense districts and 360 streets",log);
     Check(CityMap.MinimumSeconds>=1200,"straight-line vertical lower bound exceeds 20 minutes, including finish tolerance",log);
     Check(CityMap.TotalDistance/Game.MoveSpeed>CityMap.MinimumSeconds,"marked route is longer than the shortcut lower bound",log);
+    bool compact=true;for(int i=1;i<CityMap.Streets.Length;i++){Street prev=CityMap.Streets[i-1],next=CityMap.Streets[i];float gap=prev.Top-next.Bottom;if(gap<64||gap>160||Math.Abs(prev.CrossX-next.CrossX)>100)compact=false;}
+    Check(compact,"roads have short safe gaps and lateral transfers no longer than 100 units",log);
+    foreach(CameraMode mode in new CameraMode[]{CameraMode.FirstPerson,CameraMode.ThirdPerson}){
+     MapPoint east=PlayerControls.Movement(mode,(float)Math.PI/2,1,0),south=PlayerControls.Movement(mode,(float)Math.PI,1,0),west=PlayerControls.Movement(mode,-(float)Math.PI/2,1,0);
+     Check(Math.Abs(east.X-1)<.001f&&Math.Abs(east.Y)<.001f,"W moves right after a right turn: "+mode,log);
+     Check(Math.Abs(south.X)<.001f&&Math.Abs(south.Y-1)<.001f&&Math.Abs(west.X+1)<.001f,"full 360-degree movement: "+mode,log);
+     MapPoint back=PlayerControls.Movement(mode,(float)Math.PI/2,-1,0),left=PlayerControls.Movement(mode,(float)Math.PI/2,0,-1);
+     Check(Math.Abs(back.X+1)<.001f&&Math.Abs(left.Y+1)<.001f,"backward and strafing follow facing: "+mode,log);
+    }
+    MapPoint bird=PlayerControls.Movement(CameraMode.Bird,(float)Math.PI/2,1,0);Check(bird.X==0&&bird.Y==-1,"bird's-eye controls remain aligned with the map",log);
+    Check(Math.Abs(PlayerControls.Wrap((float)(Math.PI*6+.5))-.5)<.001f,"repeated turns wrap without limiting rotation",log);
     log.AppendLine("INFO shortcut lower bound="+CityMap.MinimumSeconds.ToString("0.00")+" s; marked route="+(CityMap.TotalDistance/Game.MoveSpeed).ToString("0.00")+" s");
     foreach(Street street in CityMap.Streets){
      game=new Game(1,42);game.Cars.Clear();game.X=street.CrossX;game.Y=street.Top+16;game.Cars.Add(new Car(game.X,game.Y,0,29,0));game.Update(.02f,0,0);
@@ -52,10 +68,10 @@ namespace QuietCrossing {
     game=new Game(1,9);game.X=14;game.Y=28;game.Update(.5f,-1,-1);Check(game.X>=12&&game.Y>=24,"map boundaries contain player",log);
     game=new Game(1,9);game.X=40;game.Y=CityMap.Houses[0].Y+20;game.Update(.5f,1,0);Check(game.X<=CityMap.Houses[0].X-4,"buildings block walking through walls",log);
     game=new Game(2,123);for(int i=0;i<3000;i++)game.Update(.02f,0,0);
-    Check(game.Cars.Count>0&&game.Cars.Count<150,"nearby streets maintain bounded traffic over 60 seconds",log);
+    Check(game.Cars.Count>0&&game.Cars.Count<600,"nearby streets maintain bounded traffic over 60 seconds",log);
     foreach(Street street in CityMap.Streets){game=new Game(1,43);game.X=street.CrossX;game.Y=street.Bottom+25;game.Update(.01f,0,0);Check(game.Cars.Exists(c=>c.Y>street.Top&&c.Y<street.Bottom&&c.Speed>0)&&game.Cars.Exists(c=>c.Y>street.Top&&c.Y<street.Bottom&&c.Speed<0),"traffic activates in both directions: "+street.Name,log);}
     game=new Game(1,44);for(int i=0;i<200;i++){game.X=220;game.Y=CityMap.Streets[30].Top+16+(i%2==0?899:901);game.Update(.01f,0,0);}
-    Check(game.Cars.Count<150,"crossing activation boundary repeatedly cannot duplicate traffic",log);
+    Check(game.Cars.Count<600,"crossing activation boundary repeatedly cannot duplicate traffic",log);
     var other=new Game(2,456);Check(other.Cars[0].X!=new Game(2,123).Cars[0].X,"new seeds change traffic",log);
     var easy=new Game(0,42);var hard=new Game(2,42);Check(Math.Abs(hard.Cars[0].Speed)>Math.Abs(easy.Cars[0].Speed),"difficulty changes speed",log);
     game=new Game(1,12);WalkRoute(game);Check(game.Result==Outcome.Won&&game.CompletedRoads==CityMap.Streets.Length&&game.Time>=1200,"entire marked walking route is traversable without teleporting",log);
@@ -79,7 +95,7 @@ namespace QuietCrossing {
      game.Y=CityMap.Start.Y;renderer.Render(g,game,CameraMode.FirstPerson,0,colors,false,false);Check(Digest(image)==first,"rendering is deterministic and does not advance simulation",log);
      game.Cars.Clear();game.Cars.Add(new Car(game.X,game.Y-1,60,40,0));
      foreach(CameraMode mode in new CameraMode[]{CameraMode.FirstPerson,CameraMode.ThirdPerson})
-      foreach(float y in new float[]{CityMap.Start.Y,CityMap.Streets[0].Top,CityMap.Streets[20].Top,CityMap.Streets[40].Top,CityMap.Streets[59].Top,92})foreach(float angle in new float[]{-1.25f,0,1.25f}) {
+      foreach(float y in new float[]{CityMap.Start.Y,CityMap.Streets[0].Top,CityMap.Streets[120].Top,CityMap.Streets[240].Top,CityMap.Streets[359].Top,CityMap.Finish.Y})foreach(float angle in new float[]{-(float)Math.PI,-1.25f,0,1.25f,(float)Math.PI/2,(float)(Math.PI*1.5)}) {
        game.Y=y;renderer.Render(g,game,mode,angle,colors,true,false);
       }
      Check(game.Time==0&&game.Result==Outcome.Playing,"near-plane clipping across crossing never changes game state",log);
