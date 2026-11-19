@@ -1,19 +1,23 @@
-# Тихий переход — контекст для продолжения
+# пиксельный переход Игра — контекст для продолжения
 
 Обновлено: 19 ноября 2026. Это краткая передача состояния, а не новая задача.
 
 ## С чего начать в следующем чате
 
-Прочитать этот файл и применимые `AGENTS.md`, проверить `git status --short`. Рабочий проект — `D:\ProjectGPT\QuietCrossing`, инструкции пользователя — `D:\ProjectGPT\AGENTS.md`. До новой просьбы пользователя ничего не переделывать: все текущие задачи завершены. Следующее изменение пользователь ещё не выбрал.
+Прочитать этот файл и применимые `AGENTS.md`, проверить `git status --short`. Рабочий проект — `D:\ProjectGPT\пиксельный переход Игра`, инструкции пользователя — `D:\ProjectGPT\AGENTS.md`. До новой просьбы пользователя ничего не переделывать: все текущие задачи завершены. Следующее изменение пользователь ещё не выбрал.
 
 ## Состояние и скачивание
 
-- Windows-игра «Тихий переход», репозиторий: https://github.com/MaksimDenisov31/quiet-crossing.
-- Последний выпуск: **1.10.0**, код приложения — коммит `ba99502` в `main`. Этот файл добавлен отдельным последующим коммитом документации.
-- Релиз: https://github.com/MaksimDenisov31/quiet-crossing/releases/tag/v1.10.0.
-- Установщик: https://github.com/MaksimDenisov31/quiet-crossing/releases/download/v1.10.0/QuietCrossing-Setup-1.10.0.exe.
-- Без установки: https://github.com/MaksimDenisov31/quiet-crossing/releases/download/v1.10.0/QuietCrossing-Portable-1.10.0.zip.
+- Windows-игра «пиксельный переход Игра», репозиторий: https://github.com/MaksimDenisov31/quiet-crossing.
+- Последний выпуск: **1.10.1**, код FPS — коммит `ba99502`, переименование — последующий коммит в `main` (см. `git log`).
+- Релиз: https://github.com/MaksimDenisov31/quiet-crossing/releases/tag/v1.10.1.
+- Установщик: https://github.com/MaksimDenisov31/quiet-crossing/releases/download/v1.10.1/PixelCrossing-Setup-1.10.1.exe.
+- Без установки: https://github.com/MaksimDenisov31/quiet-crossing/releases/download/v1.10.1/PixelCrossing-Portable-1.10.1.zip.
 - Оба файла скачаны с публичных ссылок, SHA256 совпали с проверенными сборками. Выпуск завершён, незаконченных исправлений нет.
+
+## Переименование 1.10.1
+
+Папка проекта и EXE: `D:\ProjectGPT\пиксельный переход Игра\пиксельный переход Игра.exe`. Обновлены конфигурация EXE, сборка, установщик, меню и ярлыки. Репозиторий `quiet-crossing`, namespace/resource `QuietCrossing`, AppId и каталог настроек сохранены для совместимости. Build.bat/BuildInstaller.bat используют UTF-8 и CRLF; `.gitattributes` фиксирует CRLF для BAT. При обновлении старые `QuietCrossing.exe` и `.config` в каталоге приложения удаляются установщиком после замены; реальные данные пользователя не затрагиваются.
 
 ## Что уже умеет игра
 
@@ -63,8 +67,8 @@
 
 ## Сборка, данные и публикация
 
-- C# / WinForms, .NET Framework 4.8, без внешних библиотек. PowerShell, рабочая папка `D:\ProjectGPT\QuietCrossing`.
-- `cmd /c Build.bat` собирает `QuietCrossing.exe` встроенным `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe`.
+- C# / WinForms, .NET Framework 4.8, без внешних библиотек. PowerShell, рабочая папка `D:\ProjectGPT\пиксельный переход Игра`.
+- `cmd /c Build.bat` собирает `пиксельный переход Игра.exe` встроенным `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe`.
 - `cmd /c BuildInstaller.bat` собирает EXE и установщик; Inno Setup: `C:\Program Files (x86)\Inno Setup 6\ISCC.exe`. Исходник — `installer/QuietCrossing.iss`.
 - Согласованно менять версию в `AssemblyInfo.cs`, меню, `.iss`, README и `tools/PublishRelease.ps1`. Выпуски лежат в игнорируемом `installer-output`.
 - Проверки запускать через `Start-Process -Wait -PassThru`, проверяя ExitCode. `--ui-test` пересоздаёт снимки в `docs`; `--display-test` измеряет реальный цикл и перенос между экранами. `--benchmark` измеряет рендер отдельно от вывода на монитор. Текстовые результаты тестов игнорируются Git.
@@ -80,6 +84,6 @@
 
 Пример первого сообщения в новом чате:
 
-> Продолжаем «Тихий переход». Прочитай D:\ProjectGPT\QuietCrossing\PROJECT_CONTEXT.md и применимые AGENTS.md. Пока не перечитывай весь проект — сначала уточним следующую задачу.
+> Продолжаем «пиксельный переход Игра». Прочитай D:\ProjectGPT\пиксельный переход Игра\PROJECT_CONTEXT.md и применимые AGENTS.md. Пока не перечитывай весь проект — сначала уточним следующую задачу.
 
 Файл помогает начать с краткого состояния вместо всей переписки. Он не удаляет историю уже открытого чата и не загружается в любой новый чат автоматически — нужно указать его путь. После следующих важных изменений обновлять этот файл, чтобы он не устаревал.

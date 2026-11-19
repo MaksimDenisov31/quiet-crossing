@@ -1,20 +1,20 @@
-#define AppVersion "1.10.0"
+#define AppVersion "1.10.1"
 [Setup]
 AppId=QuietCrossing.MaksimDenisov31
-AppName=Тихий переход
+AppName=пиксельный переход Игра
 AppVersion={#AppVersion}
 AppPublisher=MaksimDenisov31
 AppPublisherURL=https://github.com/MaksimDenisov31/quiet-crossing
 AppUpdatesURL=https://github.com/MaksimDenisov31/quiet-crossing/releases
-DefaultDirName={localappdata}\Programs\QuietCrossing
-DefaultGroupName=Тихий переход
+DefaultDirName={localappdata}\Programs\пиксельный переход Игра
+DefaultGroupName=пиксельный переход Игра
 PrivilegesRequired=lowest
 MinVersion=10.0
-UninstallDisplayIcon={app}\QuietCrossing.exe
+UninstallDisplayIcon={app}\пиксельный переход Игра.exe
 SetupIconFile=..\assets\app.ico
 OutputDir=..\installer-output
-OutputBaseFilename=QuietCrossing-Setup-{#AppVersion}
-VersionInfoVersion=1.10.0.0
+OutputBaseFilename=PixelCrossing-Setup-{#AppVersion}
+VersionInfoVersion=1.10.1.0
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -26,14 +26,19 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Создать ярлык на рабочем столе"; Flags: unchecked
 [Files]
-Source: "..\QuietCrossing.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\QuietCrossing.exe.config"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\пиксельный переход Игра.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\пиксельный переход Игра.exe.config"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
+[InstallDelete]
+Type: files; Name: "{app}\QuietCrossing.exe"
+Type: files; Name: "{app}\QuietCrossing.exe.config"
+Type: files; Name: "{userprograms}\Тихий переход.lnk"
+Type: files; Name: "{userdesktop}\Тихий переход.lnk"
 [Icons]
-Name: "{userprograms}\Тихий переход"; Filename: "{app}\QuietCrossing.exe"
-Name: "{userdesktop}\Тихий переход"; Filename: "{app}\QuietCrossing.exe"; Tasks: desktopicon
+Name: "{userprograms}\пиксельный переход Игра"; Filename: "{app}\пиксельный переход Игра.exe"
+Name: "{userdesktop}\пиксельный переход Игра"; Filename: "{app}\пиксельный переход Игра.exe"; Tasks: desktopicon
 [Run]
-Filename: "{app}\QuietCrossing.exe"; Description: "Запустить игру"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\пиксельный переход Игра.exe"; Description: "Запустить игру"; Flags: nowait postinstall skipifsilent
 [Code]
 function InitializeSetup(): Boolean;
 var

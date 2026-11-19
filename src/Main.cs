@@ -38,7 +38,7 @@ namespace QuietCrossing {
   public Window(bool previewMode) : this(previewMode,true) { }
   Window(bool previewMode,bool capture) {
    preview=previewMode;settings=preview?new Settings():Settings.Load(Settings.PathName);
-   Text="Тихий переход"; MinimumSize=new Size(760,560);StartPosition=FormStartPosition.CenterScreen;
+   Text="пиксельный переход Игра"; MinimumSize=new Size(760,560);StartPosition=FormStartPosition.CenterScreen;
    Size=new Size(Math.Min(Screen.PrimaryScreen.WorkingArea.Width,Math.Max(760,settings.Width)),Math.Min(Screen.PrimaryScreen.WorkingArea.Height,Math.Max(560,settings.Height)));
    if(settings.Maximized) WindowState=FormWindowState.Maximized;
    DoubleBuffered=false;SetStyle(ControlStyles.AllPaintingInWmPaint|ControlStyles.UserPaint|ControlStyles.Opaque,true);KeyPreview=true;BackColor=ink;
@@ -149,7 +149,7 @@ namespace QuietCrossing {
    if(page=="map"){DrawMapPage(g);return;}
    if(settings.Camera!=CameraMode.Bird && page!="menu" && page!="camera") DrawPerspective(g);else DrawScene(g);
    if(page=="play") {
-    Rect(g,ink,12,12,132,28);TextAt(g,"ТИХИЙ ПЕРЕХОД",21,19,10,cream,true);
+    Rect(g,ink,12,12,132,28);TextAt(g,"ПИКСЕЛЬНЫЙ ПЕРЕХОД",21,19,10,cream,true);
     Button(g,CameraName(settings.Camera)+"  [V]",153,13,214,CycleCamera);
     Button(g,"Пауза  II",376,13,91,delegate{Go("pause");});
     Rect(g,ink,12,293,456,19);Center(g,settings.Camera==CameraMode.Bird?"WASD / стрелки — идти     M — карта     V — вид     Esc — пауза":mouseCursorFree?"Курсор свободен · Tab или щелчок по сцене — вернуть обзор":"WASD — идти   Мышь — поворот   Q/E — взгляд   Tab — курсор   Esc — пауза",296,9,cream);
@@ -168,13 +168,13 @@ namespace QuietCrossing {
     Center(g,"Enter / пробел / Esc — продолжить",260,10,cream);
    } else if(page=="menu") {
     Center(g,"МАЛЕНЬКАЯ ПИКСЕЛЬНАЯ ИГРА",38,8,mint,true);
-    Center(g,"ТИХИЙ",56,35,cream,true);Center(g,"ПЕРЕХОД",89,35,cream,true);
+    Center(g,"ПИКСЕЛЬНЫЙ",56,35,cream,true);Center(g,"ПЕРЕХОД",89,35,cream,true);
     Center(g,"От точки А до точки Б. Через целый город.",137,11,Color.FromArgb(202,216,191));
     Button(g,"Играть  →",151,167,178,delegate{Go("camera");},true);
     Button(g,"Настройки",151,201,178,delegate{returnPage="menu";Go("settings");});
     Button(g,"Выход",151,235,178,Close);
     Center(g,"WASD / стрелки • Esc — пауза",282,9,mint);
-    TextAt(g,"v1.10.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
+    TextAt(g,"v1.10.1",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
    } else if(page=="camera") {
     Center(g,"ВЫБЕРИ ВИД",35,24,cream,true);
     Center(g,"360 переходов · короткие тротуары · свободный поворот",72,10,mint);
