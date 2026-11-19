@@ -114,6 +114,8 @@ namespace QuietCrossing {
      renderer.Render(g,game,CameraMode.FirstPerson,0,colors,false,false);long first=Digest(image);
      renderer.Render(g,game,CameraMode.ThirdPerson,0,colors,false,false);Check(Digest(image)!=first,"first and third person have distinct projections",log);
      renderer.Render(g,game,CameraMode.FirstPerson,-1.25f,colors,false,false);Check(Digest(image)!=first,"looking sideways changes the perspective",log);
+     renderer.Render(g,game,CameraMode.FirstPerson,0,colors,false,false,1.2f,0);Check(Digest(image)!=first,"head peek changes view independently of body yaw",log);
+     renderer.Render(g,game,CameraMode.FirstPerson,0,colors,false,false,0,.45f);Check(Digest(image)!=first,"vertical mouse look changes camera pitch",log);
      game.Y=CityMap.Start.Y-400;renderer.Render(g,game,CameraMode.FirstPerson,0,colors,true,false);Check(Digest(image)!=first,"camera follows movement across road",log);
      game.Y=CityMap.Start.Y;renderer.Render(g,game,CameraMode.FirstPerson,0,colors,false,false);Check(Digest(image)==first,"rendering is deterministic and does not advance simulation",log);
      game.Cars.Clear();game.Cars.Add(new Car(game.X,game.Y-1,60,40,0));

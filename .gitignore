@@ -2,6 +2,7 @@ QuietCrossing.exe
 installer-output/
 test-results.txt
 ui-test-results.txt
+pointer-test-results.txt
 *.tmp
 *.log
 .tools/

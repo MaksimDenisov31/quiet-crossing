@@ -99,6 +99,7 @@ namespace QuietCrossing {
    foreach(MapPoint p in new MapPoint[]{CityMap.Start,CityMap.Finish})if(p.Y>=viewTop&&p.Y<=viewTop+viewHeight)TextAt(g,p.Y==CityMap.Start.Y?"А":"Б",ox+p.X*scale+4,oy+(p.Y-viewTop)*scale-5,8,ink,true);
    Rect(g,ink,ox+game.X*scale-3,oy+(game.Y-viewTop)*scale-3,6,6);Rect(g,cream,ox+game.X*scale-2,oy+(game.Y-viewTop)*scale-2,4,4);
    if(settings.Camera!=CameraMode.Bird)using(var pen=new Pen(cream,detailed?2:1))g.DrawLine(pen,ox+game.X*scale,oy+(game.Y-viewTop)*scale,ox+game.X*scale+(float)Math.Sin(yaw)*9,oy+(game.Y-viewTop)*scale-(float)Math.Cos(yaw)*9);
+   if(settings.Camera!=CameraMode.Bird&&Math.Abs(peekYaw)>.02f)using(var pen=new Pen(Color.FromArgb(246,201,104),detailed?2:1))g.DrawLine(pen,ox+game.X*scale,oy+(game.Y-viewTop)*scale,ox+game.X*scale+(float)Math.Sin(yaw+peekYaw)*11,oy+(game.Y-viewTop)*scale-(float)Math.Cos(yaw+peekYaw)*11);
    g.Restore(state);
   }
   void DrawCampaignDiagram(Graphics g,RectangleF box){
@@ -119,7 +120,7 @@ namespace QuietCrossing {
    Rect(g,ink,12,48,259,39);
    TextAt(g,"А → Б   "+game.CompletedRoads+" / "+CityMap.Streets.Length+"   "+(int)(game.Progress*100)+"%   "+Game.Duration(game.Time),20,53,9,cream,true);
    TextAt(g,"Далее: "+game.TargetName,20,69,8,mint);
-   if(settings.Camera!=CameraMode.Bird){Rect(g,ink,12,95,101,17);TextAt(g,"Взгляд: "+PlayerControls.Compass(yaw),18,98,8,cream);}
+   if(settings.Camera!=CameraMode.Bird){Rect(g,ink,12,95,101,17);TextAt(g,"Курс: "+PlayerControls.Compass(yaw),18,98,8,cream);if(Math.Abs(peekYaw)>.02f){Rect(g,ink,12,113,101,17);TextAt(g,"Взгляд: "+PlayerControls.Compass(yaw+peekYaw),18,116,8,mint);}}
    Rect(g,Color.FromArgb(76,96,85),12,87,259,3);Rect(g,mint,12,87,259*game.Progress,3);
    Rect(g,ink,391,100,81,153);TextAt(g,"Район "+(CityMap.DistrictIndex(game.CompletedRoads)+1)+" / 12",397,105,7,mint);DrawMapDiagram(g,new RectangleF(397,119,69,124),false);
    Button(g,"Карта [M]",391,260,81,OpenMap);

@@ -14,6 +14,7 @@ namespace QuietCrossing {
    if(args.Length>0 && args[0]=="--self-test") return Tests.Run();
    Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
    if(args.Length>0 && args[0]=="--ui-test") return Window.RunUiTests();
+   if(args.Length>0 && args[0]=="--pointer-test") return Window.RunPointerTest();
    Application.Run(new Window(args.Length>0 && args[0]=="--preview"));return 0;
   }
  }
@@ -43,20 +44,23 @@ namespace QuietCrossing {
    using(var stream=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("QuietCrossing.Icon")) if(stream!=null) Icon=new Icon(stream);
    game=new Game(1,1234);
    timer.Interval=16;timer.Tick+=Tick;timer.Start();
-   Deactivate+=delegate {EndMouseTurn();keys.Clear();if(page=="play") {page="pause";focus=-1;Invalidate();}};
-   FormClosing+=delegate {if(!preview) {Rectangle r=WindowState==FormWindowState.Normal?Bounds:RestoreBounds;settings.Width=r.Width;settings.Height=r.Height;settings.Maximized=WindowState==FormWindowState.Maximized;settings.Save(Settings.PathName);}};
+   Deactivate+=delegate {EndMouseTurn(false);peekYaw=0;keys.Clear();if(page=="play") {page="pause";focus=-1;Invalidate();}};
+   FormClosing+=delegate {EndMouseTurn();if(!preview) {Rectangle r=WindowState==FormWindowState.Normal?Bounds:RestoreBounds;settings.Width=r.Width;settings.Height=r.Height;settings.Maximized=WindowState==FormWindowState.Maximized;settings.Save(Settings.PathName);}};
    if(preview && capture) Shown+=delegate {CapturePreviews();Close();};
   }
   void Save() {if(!preview && !settings.Save(Settings.PathName)) notice="Не удалось сохранить настройки.";}
-  void StartGame() {EndMouseTurn();game=new Game(settings.Difficulty,Environment.TickCount);yaw=0;crosswalkNoticeUntil=0;keys.Clear();page="play";focus=-1;}
+  void StartGame() {EndMouseTurn();game=new Game(settings.Difficulty,Environment.TickCount);yaw=0;peekYaw=0;lookPitch=0;mouseCursorFree=false;crosswalkNoticeUntil=0;keys.Clear();page="play";focus=-1;BeginMouseLook();}
   void ChooseCamera(CameraMode mode) {settings.Camera=mode;Save();StartGame();}
-  void CycleCamera() {EndMouseTurn();settings.Camera=(CameraMode)(((int)settings.Camera+1)%3);Save();}
-  void Go(string value) {EndMouseTurn();page=value;keys.Clear();focus=value=="camera"?(settings.Camera==CameraMode.FirstPerson?0:settings.Camera==CameraMode.ThirdPerson?1:2):-1;Invalidate();}
+  void CycleCamera() {EndMouseTurn();settings.Camera=(CameraMode)(((int)settings.Camera+1)%3);peekYaw=0;mouseCursorFree=false;Save();BeginMouseLook();}
+  void Go(string value) {EndMouseTurn();page=value;peekYaw=0;mouseCursorFree=false;keys.Clear();focus=value=="camera"?(settings.Camera==CameraMode.FirstPerson?0:settings.Camera==CameraMode.ThirdPerson?1:2):-1;BeginMouseLook();Invalidate();}
   void Tick(object sender,EventArgs e) {
    double now=watch.Elapsed.TotalSeconds;float dt=(float)Math.Min(0.05,now-previous);previous=now;ambient+=dt;
+   SyncMouseLook();
    if(page=="play") {
     bool perspective=settings.Camera!=CameraMode.Bird;
-    if(perspective)yaw=PlayerControls.Wrap(yaw+((Down(Keys.E,Keys.Right)?1:0)-(Down(Keys.Q,Keys.Left)?1:0))*PlayerControls.TurnSpeed*dt);
+    if(perspective)yaw=PlayerControls.Wrap(yaw+((keys.Contains(Keys.Right)?1:0)-(keys.Contains(Keys.Left)?1:0))*PlayerControls.TurnSpeed*dt);
+    float peekTarget=perspective?((keys.Contains(Keys.E)?1:0)-(keys.Contains(Keys.Q)?1:0))*1.2f:0;
+    peekYaw+=(peekTarget-peekYaw)*Math.Min(1,dt*14);
     float forward=(Down(Keys.Up,Keys.W)?1:0)-(Down(Keys.Down,Keys.S)?1:0);
     float strafe=(keys.Contains(Keys.D)||!perspective&&keys.Contains(Keys.Right)?1:0)-(keys.Contains(Keys.A)||!perspective&&keys.Contains(Keys.Left)?1:0);
     MapPoint movement=PlayerControls.Movement(settings.Camera,yaw,forward,strafe);game.Update(dt,movement.X,movement.Y);
@@ -72,6 +76,7 @@ namespace QuietCrossing {
    Invalidate();
   }
   bool Down(Keys a,Keys b) {return keys.Contains(a)||keys.Contains(b);}
+  bool WalkingInput {get{return Down(Keys.W,Keys.Up)||Down(Keys.S,Keys.Down)||keys.Contains(Keys.A)||keys.Contains(Keys.D)||(!Perspective&&(keys.Contains(Keys.Left)||keys.Contains(Keys.Right)));}}
   void Tone(int hz) {
    if(!settings.Sound)return;
    try {
@@ -89,7 +94,8 @@ namespace QuietCrossing {
   protected override bool IsInputKey(Keys keyData){Keys key=keyData&Keys.KeyCode;return key==Keys.Left||key==Keys.Right||key==Keys.Up||key==Keys.Down||key==Keys.Tab||key==Keys.Enter||key==Keys.Space||base.IsInputKey(keyData);}
   protected override void OnKeyDown(KeyEventArgs e) {
    base.OnKeyDown(e);bool firstPress=keys.Add(e.KeyCode);
-   if(e.KeyCode==Keys.Escape || e.KeyCode==Keys.P) {
+   if(firstPress&&e.KeyCode==Keys.Tab&&page=="play"&&Perspective){EndMouseTurn();mouseCursorFree=!mouseCursorFree;keys.Clear();BeginMouseLook();}
+   else if(e.KeyCode==Keys.Escape || e.KeyCode==Keys.P) {
     if(page=="play")Go("pause");else if(page=="pause")Go("play");else if(page=="map")Go(mapReturn);else if(page=="settings")Go(returnPage);else if(page!="menu")Go("menu");
    } else if(page!="play" && (e.KeyCode==Keys.Tab || e.KeyCode==Keys.Down || e.KeyCode==Keys.Up)) {
     if(hits.Count>0)focus=(focus+(e.KeyCode==Keys.Up?-1:1)+hits.Count)%hits.Count;
@@ -102,9 +108,9 @@ namespace QuietCrossing {
   }
   protected override void OnKeyUp(KeyEventArgs e) {keys.Remove(e.KeyCode);base.OnKeyUp(e);}
   PointF Logical(Point p) {return new PointF((p.X-viewport.X)*480f/Math.Max(1,viewport.Width),(p.Y-viewport.Y)*320f/Math.Max(1,viewport.Height));}
-  protected override void OnMouseMove(MouseEventArgs e) {TurnMouse(e);mouse=Logical(e.Location);Cursor=hits.Exists(h=>h.Rect.Contains(mouse))?Cursors.Hand:Cursors.Default;base.OnMouseMove(e);}
+  protected override void OnMouseMove(MouseEventArgs e) {TurnMouse(e);if(mouseTurning)mouse=new PointF(-1,-1);else{mouse=Logical(e.Location);Cursor=hits.Exists(h=>h.Rect.Contains(mouse))?Cursors.Hand:Cursors.Default;}base.OnMouseMove(e);}
   protected override void OnMouseLeave(EventArgs e) {mouse=new PointF(-1,-1);base.OnMouseLeave(e);}
-  protected override void OnMouseDown(MouseEventArgs e) {base.OnMouseDown(e);if(e.Button==MouseButtons.Right&&page=="play"&&settings.Camera!=CameraMode.Bird){BeginMouseTurn(e);return;}if(e.Button!=MouseButtons.Left||mouseTurning)return;PointF p=Logical(e.Location);foreach(Hit h in hits.ToArray())if(h.Rect.Contains(p)){h.Action();break;}}
+  protected override void OnMouseDown(MouseEventArgs e) {base.OnMouseDown(e);if(e.Button!=MouseButtons.Left||mouseTurning)return;PointF p=Logical(e.Location);foreach(Hit h in hits.ToArray())if(h.Rect.Contains(p)){h.Action();return;}if(page=="play"&&Perspective&&mouseCursorFree){mouseCursorFree=false;BeginMouseLook();}}
   void Rect(Graphics g,Color c,float x,float y,float w,float h) {using(var b=new SolidBrush(c))g.FillRectangle(b,x,y,w,h);}
   void TextAt(Graphics g,string text,float x,float y,float size,Color c,bool bold=false) {
    using(var font=new Font("Segoe UI",size,bold?FontStyle.Bold:FontStyle.Regular,GraphicsUnit.Pixel)) using(var b=new SolidBrush(c))g.DrawString(text,font,b,x,y,StringFormat.GenericTypographic);
@@ -128,7 +134,7 @@ namespace QuietCrossing {
    int x=(int)px,y=(int)py;
    Rect(g,Color.FromArgb(91,104,85),x-7,y-1,15,4);
    if(fallen) {Rect(g,cream,x-9,y-6,7,7);Rect(g,carColors[0],x-2,y-7,10,7);Rect(g,ink,x+8,y-7,5,3);return;}
-   int stride=page=="play" && keys.Count>0 ? ((int)(game.Time*10)%2)*2:0;
+   int stride=page=="play" && WalkingInput ? ((int)(game.Time*10)%2)*2:0;
    Rect(g,ink,x-4,y-5,3,5-stride);Rect(g,ink,x+2,y-5,3,3+stride);
    Rect(g,carColors[0],x-5,y-13,11,9);Rect(g,Color.FromArgb(244,193,146),x-4,y-21,8,9);
    Rect(g,ink,x-4,y-23,9,5);Rect(g,ink,x-5,y-21,3,4);Rect(g,cream,x-2,y-12,3,4);Rect(g,Color.FromArgb(244,193,146),x-7,y-10,2,5);
@@ -141,7 +147,7 @@ namespace QuietCrossing {
     Rect(g,ink,12,12,132,28);TextAt(g,"ТИХИЙ ПЕРЕХОД",21,19,10,cream,true);
     Button(g,CameraName(settings.Camera)+"  [V]",153,13,214,CycleCamera);
     Button(g,"Пауза  II",376,13,91,delegate{Go("pause");});
-    Rect(g,ink,12,293,456,19);Center(g,settings.Camera==CameraMode.Bird?"WASD / стрелки — идти     M — карта     V — вид     Esc — пауза":"WASD — идти    Q/E, ←/→ — поворот    ПКМ + мышь — взгляд",296,9,cream);
+    Rect(g,ink,12,293,456,19);Center(g,settings.Camera==CameraMode.Bird?"WASD / стрелки — идти     M — карта     V — вид     Esc — пауза":mouseCursorFree?"Курсор свободен · Tab или щелчок по сцене — вернуть обзор":"WASD — идти   Мышь — поворот   Q/E — взгляд   Tab — курсор   Esc — пауза",296,9,cream);
     DrawRouteHud(g);
     if(watch.Elapsed.TotalSeconds<crosswalkNoticeUntil){Rect(g,ink,45,273,338,16);TextAt(g,"Вышел за зебру — новая попытка с точки А",54,276,9,cream,true);}
     return;
@@ -155,12 +161,12 @@ namespace QuietCrossing {
     Button(g,"Настройки",151,201,178,delegate{returnPage="menu";Go("settings");});
     Button(g,"Выход",151,235,178,Close);
     Center(g,"WASD / стрелки • Esc — пауза",282,9,mint);
-    TextAt(g,"v1.5.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
+    TextAt(g,"v1.6.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
    } else if(page=="camera") {
     Center(g,"ВЫБЕРИ ВИД",35,24,cream,true);
     Center(g,"360 переходов · короткие тротуары · свободный поворот",72,10,mint);
     Button(g,"От первого лица",105,106,270,delegate{ChooseCamera(CameraMode.FirstPerson);},settings.Camera==CameraMode.FirstPerson);
-    Center(g,"Q/E или ПКМ + мышь — поворот, W — вперёд",137,9,mint);
+    Center(g,"Мышь — поворот, Q/E — посмотреть в стороны",137,9,mint);
     Button(g,"От третьего лица",105,163,270,delegate{ChooseCamera(CameraMode.ThirdPerson);},settings.Camera==CameraMode.ThirdPerson);
     Center(g,"Камера и движение следуют за поворотом",194,9,mint);
     Button(g,"С высоты птичьего полёта",105,220,270,delegate{ChooseCamera(CameraMode.Bird);},settings.Camera==CameraMode.Bird);
@@ -196,16 +202,16 @@ namespace QuietCrossing {
   }
   void CapturePreviews() {
    Directory.CreateDirectory("docs");
-   settings=new Settings{Sound=false};focus=-1;mouse=new PointF(-1,-1);keys.Clear();
-   foreach(string p in new string[]{"menu","camera","play","settings","pause","lost","won","map","map-local","city-middle","first-person","third-person","look-left","first-person-road","third-person-road","first-person-right","third-person-right","crosswalk-restart"}) {
-    bool firstView=p.StartsWith("first-person")||p=="look-left",thirdView=p.StartsWith("third-person");
+   EndMouseTurn();settings=new Settings{Sound=false};focus=-1;mouse=new PointF(-1,-1);keys.Clear();
+   foreach(string p in new string[]{"menu","camera","play","settings","pause","lost","won","map","map-local","city-middle","first-person","third-person","look-left","look-right","first-person-down","free-cursor","first-person-road","third-person-road","first-person-right","third-person-right","crosswalk-restart"}) {
+    bool firstView=p.StartsWith("first-person")||p=="look-left"||p=="look-right"||p=="free-cursor",thirdView=p.StartsWith("third-person");
     settings.Camera=firstView?CameraMode.FirstPerson:thirdView?CameraMode.ThirdPerson:CameraMode.Bird;
     page=firstView||thirdView||p=="city-middle"||p=="crosswalk-restart"?"play":p;
     crosswalkNoticeUntil=p=="crosswalk-restart"?watch.Elapsed.TotalSeconds+2.5:0;
     mapLocal=p=="map-local";if(mapLocal)page="map";
-    yaw=p=="look-left"?-1.25f:0;
+    yaw=0;peekYaw=p=="look-left"?-1.2f:p=="look-right"?1.2f:0;lookPitch=p=="first-person-down"?.45f:0;mouseCursorFree=p=="free-cursor";
     game=new Game(1,1234);if(p.EndsWith("-road"))game.Y=CityMap.Streets[0].Bottom-20;
-    if(p.EndsWith("-right")){Tests.VisitRoads(game,1);yaw=(float)Math.PI/2;}
+    if(p=="first-person-right"||p=="third-person-right"){Tests.VisitRoads(game,1);yaw=(float)Math.PI/2;}
     if(p=="city-middle"){int half=CityMap.Streets.Length/2;Tests.VisitRoads(game,half);Street middle=CityMap.Streets[half];game.X=middle.CrossX;game.Y=middle.Bottom+28;game.Cars.Add(new Car(middle.CrossX+60,middle.Top+16,60,29,0));}
     if(p=="lost")game.Result=Outcome.Lost;if(p=="won")Tests.WalkRoute(game);
     using(Graphics g=Graphics.FromImage(scene))Draw(g);
@@ -220,6 +226,7 @@ namespace QuietCrossing {
      Action render=()=> {using(var bitmap=new Bitmap(w.ClientSize.Width,w.ClientSize.Height))using(Graphics g=Graphics.FromImage(bitmap))w.OnPaint(new PaintEventArgs(g,w.ClientRectangle));};
      render();
      Action<string> click=label=>{
+      if(w.mouseTurning){w.OnKeyDown(new KeyEventArgs(Keys.Tab));w.OnKeyUp(new KeyEventArgs(Keys.Tab));}
       render();Hit h=w.hits.Find(item=>item.Label==label);
       if(h==null)throw new Exception("Missing button: "+label);
       Rectangle area=w.viewport;
@@ -257,9 +264,9 @@ namespace QuietCrossing {
       if(w.settings.Camera==mode||w.game!=sameGame||w.game.Y!=y||w.game.Time!=0)throw new Exception("Camera cycle must not reset simulation");
       w.settings.Camera=mode;
       w.OnKeyDown(new KeyEventArgs(Keys.Q));w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.Q));
-      if(mode!=CameraMode.Bird&&w.yaw>=0)throw new Exception("Turn left");render();
+      if(mode!=CameraMode.Bird&&(w.peekYaw>=0||w.yaw!=0))throw new Exception("Peek left without body turn");render();
       w.OnKeyDown(new KeyEventArgs(Keys.E));w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.E));
-      if(mode!=CameraMode.Bird&&w.yaw<=0)throw new Exception("Turn right");render();
+      if(mode!=CameraMode.Bird&&(w.peekYaw<=0||w.yaw!=0))throw new Exception("Peek right without body turn");render();
       w.OnKeyDown(new KeyEventArgs(Keys.Escape));float elapsed=w.game.Time;
       click("Настройки");click("Третье лицо");click("Готово");if(w.page!="pause"||w.game!=sameGame||w.game.Time!=elapsed||w.settings.Camera!=CameraMode.ThirdPerson)throw new Exception("Camera setting during pause");
       click("Настройки");click(CameraShort(mode));click("Готово");
@@ -272,46 +279,53 @@ namespace QuietCrossing {
      }
      log.AppendLine("PASS all three cameras, V preserves route, Q/E look, map pauses and returns, full-route win and retry");
      w.Go("menu");click("Играть  →");click("От первого лица");
-     for(int i=0;i<15;i++){w.OnKeyDown(new KeyEventArgs(Keys.E));w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.E));}
-     float facing=w.yaw;w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);
-     if(Math.Abs(w.yaw-facing)>.0001f||Math.Abs(facing-(float)Math.PI/2)>.02f)throw new Exception("Keyboard turn persists after release");
-     float turnX=w.game.X,turnY=w.game.Y;w.OnKeyDown(new KeyEventArgs(Keys.W));w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.W));
-     if(w.game.X<turnX+3||Math.Abs(w.game.Y-turnY)>.1f)throw new Exception("W must follow the right turn");
-     Game turnedGame=w.game;w.CycleCamera();if(w.settings.Camera!=CameraMode.ThirdPerson||w.game!=turnedGame||w.yaw!=facing)throw new Exception("Camera switch must preserve facing");
-     render();w.OnMouseDown(new MouseEventArgs(MouseButtons.Right,1,200,200,0));w.OnMouseMove(new MouseEventArgs(MouseButtons.Right,0,300,200,0));w.OnMouseUp(new MouseEventArgs(MouseButtons.Right,1,300,200,0));
-     if(Math.Abs(PlayerControls.Wrap(w.yaw-facing))<.1f)throw new Exception("RMB mouse turn");
-     facing=w.yaw;w.OnMouseMove(new MouseEventArgs(MouseButtons.None,0,400,200,0));if(w.yaw!=facing)throw new Exception("Free cursor must not turn camera");
-     w.OnMouseDown(new MouseEventArgs(MouseButtons.Right,1,200,200,0));w.OnKeyDown(new KeyEventArgs(Keys.M));w.OnKeyUp(new KeyEventArgs(Keys.M));
-     if(w.page!="map"||w.mouseTurning||w.Capture)throw new Exception("Opening map releases mouse turn");click("Продолжить");if(w.yaw!=facing)throw new Exception("Map preserves facing");
-     w.OnMouseDown(new MouseEventArgs(MouseButtons.Right,1,200,200,0));w.OnDeactivate(EventArgs.Empty);if(w.page!="pause"||w.mouseTurning||w.Capture)throw new Exception("Focus loss releases mouse turn");
-     log.AppendLine("PASS persistent keyboard rotation, heading-relative W, camera/map preserve facing, RMB mouse rotation, capture release on map and focus loss");
+     if(!w.mouseTurning)throw new Exception("Mouse look must start without a button");
+     float facing=w.yaw;Point center=w.MouseCenter;
+     w.OnMouseMove(new MouseEventArgs(MouseButtons.None,0,center.X+100,center.Y+40,0));
+     if(w.yaw==facing||w.lookPitch<=0)throw new Exception("Button-free mouse must turn and look vertically");
+     w.yaw=(float)Math.PI/2;w.peekYaw=0;w.lookPitch=0;
+     float turnX=w.game.X,turnY=w.game.Y;
+     w.OnKeyDown(new KeyEventArgs(Keys.E));w.OnKeyDown(new KeyEventArgs(Keys.W));w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.W));
+     if(w.yaw!=(float)Math.PI/2||w.peekYaw<=0||w.game.X<turnX+3||Math.Abs(w.game.Y-turnY)>.1f)throw new Exception("Q/E must not redirect W");
+     w.OnKeyUp(new KeyEventArgs(Keys.E));for(int i=0;i<10;i++){w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);}
+     if(Math.Abs(w.peekYaw)>.001f||w.yaw!=(float)Math.PI/2)throw new Exception("Peek returns to body facing on release");
+     Game turnedGame=w.game;facing=w.yaw;w.CycleCamera();if(w.settings.Camera!=CameraMode.ThirdPerson||w.game!=turnedGame||w.yaw!=facing||!w.mouseTurning)throw new Exception("Camera switch preserves facing and mouse look");
+     turnX=w.game.X;turnY=w.game.Y;w.OnKeyDown(new KeyEventArgs(Keys.Q));w.OnKeyDown(new KeyEventArgs(Keys.W));w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.W));w.OnKeyUp(new KeyEventArgs(Keys.Q));
+     if(w.peekYaw>=0||w.yaw!=facing||w.game.X<turnX+3||Math.Abs(w.game.Y-turnY)>.1f)throw new Exception("Third-person peek must also preserve body movement");
+     w.OnKeyDown(new KeyEventArgs(Keys.Tab));w.OnKeyUp(new KeyEventArgs(Keys.Tab));if(w.mouseTurning||!w.mouseCursorFree)throw new Exception("Tab releases cursor");
+     w.OnMouseMove(new MouseEventArgs(MouseButtons.None,0,400,200,0));if(w.yaw!=facing)throw new Exception("Released cursor must not steer");
+     w.OnKeyDown(new KeyEventArgs(Keys.Tab));w.OnKeyUp(new KeyEventArgs(Keys.Tab));if(!w.mouseTurning)throw new Exception("Tab resumes mouse look");
+     w.OnKeyDown(new KeyEventArgs(Keys.M));w.OnKeyUp(new KeyEventArgs(Keys.M));if(w.page!="map"||w.mouseTurning)throw new Exception("Map releases mouse look");click("Продолжить");if(w.yaw!=facing||!w.mouseTurning)throw new Exception("Map return resumes mouse look");
+     w.OnDeactivate(EventArgs.Empty);if(w.page!="pause"||w.mouseTurning||w.Capture)throw new Exception("Focus loss releases mouse look");
+     log.AppendLine("PASS button-free horizontal/vertical mouse, Q/E peeks without redirecting W, release centers head, Tab/map/focus cursor lifecycle");
      click("Продолжить");
-     foreach(Keys turnKey in new Keys[]{Keys.E,Keys.Right}){
-      float nativeBefore=w.yaw;NativeTestInput.Post(w.Handle,0x100,(int)turnKey,0);Application.DoEvents();
-      if(!w.keys.Contains(turnKey))throw new Exception("Native key down "+turnKey);
+     foreach(Keys inputKey in new Keys[]{Keys.E,Keys.Right}){
+      float nativeBefore=inputKey==Keys.E?w.peekYaw:w.yaw;NativeTestInput.Post(w.Handle,0x100,(int)inputKey,0);Application.DoEvents();
+      if(!w.keys.Contains(inputKey))throw new Exception("Native key down "+inputKey);
       w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);
-      if(w.yaw==nativeBefore)throw new Exception("Native keyboard turn "+turnKey);
-      NativeTestInput.Post(w.Handle,0x101,(int)turnKey,0);Application.DoEvents();if(w.keys.Contains(turnKey))throw new Exception("Native key up "+turnKey);
+      if((inputKey==Keys.E?w.peekYaw:w.yaw)==nativeBefore)throw new Exception("Native look/turn "+inputKey);
+      NativeTestInput.Post(w.Handle,0x101,(int)inputKey,0);Application.DoEvents();if(w.keys.Contains(inputKey))throw new Exception("Native key up "+inputKey);
      }
-     NativeTestInput.Post(w.Handle,0x204,2,200|(200<<16));Application.DoEvents();float nativeMouse=w.yaw;
-     NativeTestInput.Post(w.Handle,0x200,2,300|(200<<16));Application.DoEvents();
-     if(w.yaw==nativeMouse)throw new Exception("Native mouse turn");NativeTestInput.Post(w.Handle,0x205,0,300|(200<<16));Application.DoEvents();
-     if(w.mouseTurning||w.Capture)throw new Exception("Native mouse release");log.AppendLine("PASS real WinForms message pipeline: E/right key down and up, RMB drag and release");
+     center=w.MouseCenter;float nativeMouse=w.yaw;
+     NativeTestInput.Post(w.Handle,0x200,0,(center.X+80)|((center.Y+15)<<16));Application.DoEvents();
+     if(w.yaw==nativeMouse||!w.mouseTurning)throw new Exception("Native button-free mouse look");
+     NativeTestInput.Post(w.Handle,0x205,0,(center.X+80)|((center.Y+15)<<16));Application.DoEvents();if(!w.mouseTurning)throw new Exception("RMB release must not stop free mouse look");
+     log.AppendLine("PASS real WinForms messages: E peeks, arrow turns, no-button mouse move steers, RMB has no role");
      foreach(CameraMode mode in Enum.GetValues(typeof(CameraMode))){
       w.Go("menu");click("Играть  →");click(CameraName(mode));Street first=CityMap.Streets[0];
       Game overlap=Tests.CrosswalkCase(first,first.CrosswalkRight+Game.BodyHalfWidth-.25f,first.Top+16);w.game=overlap;w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
       if(w.game!=overlap||w.page!="play")throw new Exception("Partial crosswalk overlap must not restart: "+mode);
       Tests.VisitRoads(w.game,2);Game old=w.game;int beforeWins=w.settings.Wins;int difficulty=w.settings.Difficulty;Street road=CityMap.Streets[2];
       w.game.Cars.Clear();w.game.X=road.CrosswalkRight+Game.BodyHalfWidth+.5f;w.game.Y=road.Top+16;w.yaw=.6f;w.OnKeyDown(new KeyEventArgs(Keys.W));w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
-      if(w.game==old||w.page!="play"||w.game.Result!=Outcome.Playing||w.game.CompletedRoads!=0||w.game.Time!=0||w.game.X!=CityMap.Start.X||w.game.Y!=CityMap.Start.Y||w.yaw!=0||w.keys.Count!=0||w.mouseTurning||w.Capture)throw new Exception("Full crosswalk exit must restart at A: "+mode);
+      if(w.game==old||w.page!="play"||w.game.Result!=Outcome.Playing||w.game.CompletedRoads!=0||w.game.Time!=0||w.game.X!=CityMap.Start.X||w.game.Y!=CityMap.Start.Y||w.yaw!=0||w.peekYaw!=0||w.lookPitch!=0||w.keys.Count!=0||w.mouseTurning!=(mode!=CameraMode.Bird)||w.Capture)throw new Exception("Full crosswalk exit must restart at A: "+mode);
       if(w.settings.Camera!=mode||w.settings.Difficulty!=difficulty||w.settings.Wins!=beforeWins||w.crosswalkNoticeUntil<=w.watch.Elapsed.TotalSeconds)throw new Exception("Crosswalk restart must preserve settings and explain cause: "+mode);render();
      }
      log.AppendLine("PASS all three cameras: partial zebra overlap continues, full exit restarts entire route at A, settings preserved and reason shown");
-     w.CapturePreviews();w.Close();log.AppendLine("PASS eighteen rendered screen previews");
+     w.CapturePreviews();w.Close();log.AppendLine("PASS twenty-one rendered screen previews");
     }
     File.WriteAllText("ui-test-results.txt",log.ToString());return 0;
    } catch(Exception ex) {File.WriteAllText("ui-test-results.txt",log+"FAIL "+ex);return 1;}
   }
-  protected override void Dispose(bool disposing) {if(disposing){timer.Dispose();scene.Dispose();world.Dispose();if(soundPlayer!=null)soundPlayer.Dispose();if(soundStream!=null)soundStream.Dispose();}base.Dispose(disposing);}
+  protected override void Dispose(bool disposing) {if(disposing){DisposeMouseLook();timer.Dispose();scene.Dispose();world.Dispose();if(soundPlayer!=null)soundPlayer.Dispose();if(soundStream!=null)soundStream.Dispose();}base.Dispose(disposing);}
  }
 }

@@ -30,12 +30,12 @@ if ($Release) {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release commit.' }
     $sha = $revision.Trim()
     $body = @{
-        tag_name='v1.5.0'; target_commitish=$sha; name='Тихий переход 1.5.0 — дорогу нужно переходить по зебре'; draft=$false; prerelease=$false
-        body="Добавлено обязательное движение по пешеходному переходу.`n`n- Полный выход персонажа за боковую границу зебры на проезжей части автоматически начинает маршрут заново с А.`n- Половина персонажа за краем, небольшой оставшийся участок на переходе и касание границы разрешены.`n- На тротуарах можно свободно ходить и поворачивать; выход на противоположный тротуар не считается нарушением.`n- Появляется сообщение о причине возврата. Правило одинаково во всех трёх видах камеры.`n- Камера, сложность и настройки сохраняются; столкновения с машинами работают как раньше.`n`nWASD — движение, Q/E или ←/→ — поворот, ПКМ + мышь — свободный поворот, M — карта, V — вид, Esc — пауза. Windows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
+        tag_name='v1.6.0'; target_commitish=$sha; name='Тихий переход 1.6.0 — свободная мышь и взгляд на Q/E'; draft=$false; prerelease=$false
+        body="Мышь теперь управляет поворотом без удержания ПКМ.`n`n- Движение мыши поворачивает персонажа и позволяет смотреть вверх/вниз. Край экрана не ограничивает горизонтальный поворот.`n- Q/E временно поворачивают голову в стороны; после отпускания взгляд возвращается. W сохраняет направление тела.`n- Tab освобождает курсор для интерфейса, повторный Tab или щелчок по сцене возвращает обзор.`n- Пауза, карта, потеря фокуса и вид сверху освобождают системный курсор; возврат в игру включает обзор.`n- Курс тела и взгляд отдельно отмечены на мини-карте. Правило границ зебры и все прежние настройки сохранены.`n`nWASD — движение, мышь — поворот, Q/E — оглядеться, M — карта, V — вид, Esc — пауза. Windows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
     } | ConvertTo-Json
     $releaseInfo = Invoke-RestMethod -Method Post -Uri "$base/repos/$repo/releases" -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     $upload = $releaseInfo.upload_url -replace '\{.*$', ''
-    foreach ($name in @('QuietCrossing-Setup-1.5.0.exe','QuietCrossing-Portable-1.5.0.zip','SHA256SUMS.txt')) {
+    foreach ($name in @('QuietCrossing-Setup-1.6.0.exe','QuietCrossing-Portable-1.6.0.zip','SHA256SUMS.txt')) {
         $file = Join-Path $project "installer-output\$name"
         $asset = Invoke-RestMethod -Method Post -Uri ($upload + '?name=' + [Uri]::EscapeDataString($name)) -Headers $headers -ContentType 'application/octet-stream' -InFile $file
         Write-Output ($asset.name + ': ' + $asset.browser_download_url)

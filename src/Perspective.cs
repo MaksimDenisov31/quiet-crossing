@@ -16,10 +16,10 @@ namespace QuietCrossing {
    return mode==CameraMode.FirstPerson?"Первое лицо":mode==CameraMode.ThirdPerson?"Третье лицо":"Сверху";
   }
   void DrawPerspective(Graphics g) {
-   world.Render(g,game,settings.Camera,yaw,carColors,page=="play"&&keys.Count>0,page=="lost");
+   world.Render(g,game,settings.Camera,yaw,carColors,page=="play"&&WalkingInput,page=="lost",peekYaw,lookPitch);
    if(settings.Camera==CameraMode.FirstPerson && page=="play") {
     // Small sleeves anchor the eye-level view without hiding the traffic.
-    int bob=keys.Count>0?(int)(Math.Sin(game.Time*10)*2):0;
+    int bob=WalkingInput?(int)(Math.Sin(game.Time*10)*2):0;
     Rect(g,ink,29,286+bob,25,7);Rect(g,carColors[0],31,280+bob,21,10);
     Rect(g,Color.FromArgb(244,193,146),39,271+bob,10,11);
     Rect(g,ink,426,286-bob,25,7);Rect(g,carColors[0],428,280-bob,21,10);
@@ -40,11 +40,11 @@ namespace QuietCrossing {
   float cameraX,cameraY,cameraHeight,sy,cy,sp,cp;
   const float Focal=240,Near=2;
   static readonly Color Grass=Color.FromArgb(150,180,128),Road=Color.FromArgb(65,78,80),Cream=Color.FromArgb(226,223,197),Ink=Color.FromArgb(40,60,57);
-  public void Render(Graphics graphics,Game game,CameraMode mode,float yaw,Color[] colors,bool walking,bool lost) {
-   sy=(float)Math.Sin(yaw);cy=(float)Math.Cos(yaw);
+  public void Render(Graphics graphics,Game game,CameraMode mode,float yaw,Color[] colors,bool walking,bool lost,float peek=0,float verticalLook=0) {
+   sy=(float)Math.Sin(yaw+peek);cy=(float)Math.Cos(yaw+peek);
    bool third=mode==CameraMode.ThirdPerson;
-   float pitch=third?.35f:.12f;sp=(float)Math.Sin(pitch);cp=(float)Math.Cos(pitch);
-   cameraX=game.X-(third?sy*55:0);cameraY=game.Y+(third?cy*55:0);cameraHeight=third?46:19;
+   float pitch=(third?.35f:.12f)+verticalLook;sp=(float)Math.Sin(pitch);cp=(float)Math.Cos(pitch);
+   cameraX=game.X-(third?(float)Math.Sin(yaw)*55:0);cameraY=game.Y+(third?(float)Math.Cos(yaw)*55:0);cameraHeight=third?46:19;
    Array.Clear(depth,0,depth.Length);
    for(int y=0;y<H;y++) {
     float t=y/(float)H;
