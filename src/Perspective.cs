@@ -31,7 +31,7 @@ namespace QuietCrossing {
   public float X,Y,Z;
   public Vertex(float x,float y,float z){X=x;Y=y;Z=z;}
  }
- sealed class PixelWorld : IDisposable {
+ sealed partial class PixelWorld : IDisposable {
   const int W=480,H=320;
   readonly int[] pixels=new int[W*H];
   readonly float[] depth=new float[W*H];
@@ -51,40 +51,7 @@ namespace QuietCrossing {
     int color=Color.FromArgb(197+(int)(30*t),220+(int)(7*t),210-(int)(23*t)).ToArgb();
     for(int x=0;x<W;x++)pixels[y*W+x]=color;
    }
-   Ground(-1800,-1600,1800,1800,-.05f,Grass);
-   Ground(-1600,98,1600,230,0,Road);
-   Ground(-1600,77,1600,98,.05f,Color.FromArgb(194,197,171));
-   Ground(-1600,230,1600,251,.05f,Color.FromArgb(194,197,171));
-   Ground(-1600,78,1600,81,.1f,Cream);Ground(-1600,232,1600,235,.1f,Cream);
-   for(int lane=1;lane<4;lane++)for(int x=-800;x<1200;x+=29)if(x<204||x>273)
-    Ground(x,99+lane*32,x+15,100+lane*32,.12f,lane==2?Color.FromArgb(203,181,119):Color.FromArgb(122,135,130));
-   for(int y=103;y<228;y+=16)Ground(216,y,264,y+9,.15f,Cream);
-   Ground(218,86,262,92,.15f,Color.FromArgb(216,196,128));Ground(218,239,262,245,.15f,Color.FromArgb(216,196,128));
-   for(int i=0;i<110;i++) {
-    int x=(i*113+23)%700-110,y=(i*71+13)%450-70;
-    if(y<74||y>254)Ground(x,y,x+3,y+2,.02f,i%4==0?Color.FromArgb(217,207,153):Color.FromArgb(132,164,117));
-   }
-   // Quiet houses and a treeline give eye-level views a readable horizon.
-   for(int i=0;i<9;i++) {
-    float x=-180+i*108;Color wall=i%2==0?Color.FromArgb(194,192,162):Color.FromArgb(171,187,161);
-    Box(x,-115,0,x+63,-70,38+(i%3)*9,wall);
-    Box(x-2,-117,38+(i%3)*9,x+65,-68,43+(i%3)*9,Color.FromArgb(112,136,119));
-    for(int j=0;j<3;j++)Box(x+8+j*18,-69.8f,17,x+16+j*18,-69,28,Color.FromArgb(108,145,147));
-   }
-   foreach(int x in new int[]{-130,-40,35,100,407,450,545,630}) {Tree(x,42);Tree(x+18,290);}
-   foreach(int x in new int[]{194,283}) {
-    Box(x,89,0,x+2,91,30,Ink);Box(x-6,88,23,x+8,90,36,Color.FromArgb(102,151,165));
-    Box(x-3,90.1f,26,x+5,90.3f,33,Cream);Box(x,90.4f,27,x+2,90.6f,32,Ink);
-   }
-   Box(115,56,7,144,64,10,Color.FromArgb(138,109,80));
-   Box(118,58,0,120,62,7,Ink);Box(139,58,0,141,62,7,Ink);
-   // Two small flags mark the same finish line as the top-down view.
-   foreach(int x in new int[]{213,267}) {
-    Box(x,65,0,x+1.5f,67,29,Ink);
-    Box(x+1.5f,65,20,x+13,66,29,Color.FromArgb(196,223,172));
-    for(int i=0;i<3;i++)for(int j=0;j<2;j++)if((i+j)%2==0)Box(x+2+i*3.5f,66.1f,21+j*3.5f,x+5.5f+i*3.5f,66.3f,24.5f+j*3.5f,Ink);
-   }
-   foreach(Car car in game.Cars)DrawCar(car,colors[car.Color]);
+   DrawCity(game,colors);
    if(third)DrawPerson(game,colors[0],walking,lost);
    BitmapData data=frame.LockBits(new Rectangle(0,0,W,H),ImageLockMode.WriteOnly,PixelFormat.Format32bppArgb);
    try {Marshal.Copy(pixels,0,data.Scan0,pixels.Length);}finally{frame.UnlockBits(data);}
