@@ -30,12 +30,12 @@ if ($Release) {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release commit.' }
     $sha = $revision.Trim()
     $body = @{
-        tag_name='v1.7.0'; target_commitish=$sha; name='Тихий переход 1.7.0 — разнообразный транспорт и светофоры'; draft=$false; prerelease=$false
-        body="Большое обновление городского движения.`n`n- 19 моделей: гражданские автомобили, такси, автобусы, грузовики, фуры, самосвалы, полиция, скорая, пожарные, дорожная служба, эвакуаторы, велосипедисты и мотоциклисты.`n- Президентский кортеж из пяти машин с лимузином и охраной.`n- Разные размеры и скорость, мигающие маячки, очереди, торможение и дистанция за медленным транспортом.`n- Ровно 5% переходов регулируются: 18 из 360. Для машин — красный, жёлтый, зелёный и красный с жёлтым; для пешеходов — своя безопасная фаза.`n- На красный персонаж ждёт на тротуаре без проигрыша; на зелёный можно перейти. Уже начатый переход разрешено закончить.`n- Все три камеры, управление мышью, временный взгляд Q/E, правила зебры и пользовательские настройки сохранены.`n`nWindows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
+        tag_name='v1.8.0'; target_commitish=$sha; name='Тихий переход 1.8.0 — полный экран, FPS и контрольные точки'; draft=$false; prerelease=$false
+        body="Полный экран и сохранение прогресса на отметках.`n`n- Игра запускается на весь монитор без рамки. F11 / Alt+Enter и настройки переключают оконный режим, выбор сохраняется.`n- Постоянный счётчик FPS; улучшен таймер кадров, ускорен программный рендер объёмных сцен.`n- Пронумерованные точки стали контрольными. Выход за зебру возвращает к последней достигнутой точке; после столкновения оттуда можно повторить попытку.`n- Время забега и пройденные дороги не сбрасываются, частичный выход за зебру по-прежнему разрешён.`n- Все три камеры, 19 видов транспорта, кортеж, светофоры и настройки предыдущих версий сохранены.`n`nWindows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
     } | ConvertTo-Json
     $releaseInfo = Invoke-RestMethod -Method Post -Uri "$base/repos/$repo/releases" -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     $upload = $releaseInfo.upload_url -replace '\{.*$', ''
-    foreach ($name in @('QuietCrossing-Setup-1.7.0.exe','QuietCrossing-Portable-1.7.0.zip','SHA256SUMS.txt')) {
+    foreach ($name in @('QuietCrossing-Setup-1.8.0.exe','QuietCrossing-Portable-1.8.0.zip','SHA256SUMS.txt')) {
         $file = Join-Path $project "installer-output\$name"
         $asset = Invoke-RestMethod -Method Post -Uri ($upload + '?name=' + [Uri]::EscapeDataString($name)) -Headers $headers -ContentType 'application/octet-stream' -InFile $file
         Write-Output ($asset.name + ': ' + $asset.browser_download_url)

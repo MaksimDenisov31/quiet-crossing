@@ -15,6 +15,8 @@ namespace QuietCrossing {
    Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
    if(args.Length>0 && args[0]=="--ui-test") return Window.RunUiTests();
    if(args.Length>0 && args[0]=="--pointer-test") return Window.RunPointerTest();
+   if(args.Length>0 && args[0]=="--benchmark") return Tests.Benchmark();
+   if(args.Length>0 && args[0]=="--display-test") return Window.RunDisplayTest();
    Application.Run(new Window(args.Length>0 && args[0]=="--preview"));return 0;
   }
  }
@@ -43,13 +45,15 @@ namespace QuietCrossing {
    DoubleBuffered=true;KeyPreview=true;BackColor=ink;
    using(var stream=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("QuietCrossing.Icon")) if(stream!=null) Icon=new Icon(stream);
    game=new Game(1,1234);
-   timer.Interval=16;timer.Tick+=Tick;timer.Start();
+   InitializeDisplay();
+   timer.Interval=1;timer.Tick+=ScheduledTick;timer.Start();
    Deactivate+=delegate {EndMouseTurn(false);peekYaw=0;keys.Clear();if(page=="play") {page="pause";focus=-1;Invalidate();}};
-   FormClosing+=delegate {EndMouseTurn();if(!preview) {Rectangle r=WindowState==FormWindowState.Normal?Bounds:RestoreBounds;settings.Width=r.Width;settings.Height=r.Height;settings.Maximized=WindowState==FormWindowState.Maximized;settings.Save(Settings.PathName);}};
+   FormClosing+=delegate {EndMouseTurn();if(!preview) {StoreWindowBounds();settings.Save(Settings.PathName);}};
    if(preview && capture) Shown+=delegate {CapturePreviews();Close();};
   }
   void Save() {if(!preview && !settings.Save(Settings.PathName)) notice="Не удалось сохранить настройки.";}
   void StartGame() {EndMouseTurn();game=new Game(settings.Difficulty,Environment.TickCount);yaw=0;peekYaw=0;lookPitch=0;mouseCursorFree=false;crosswalkNoticeUntil=0;keys.Clear();page="play";focus=-1;BeginMouseLook();}
+  void Respawn() {EndMouseTurn();game.Respawn();MapPoint point=game.Target;yaw=(float)Math.Atan2(point.X-game.X,game.Y-point.Y);peekYaw=0;lookPitch=0;mouseCursorFree=false;keys.Clear();page="play";focus=-1;BeginMouseLook();}
   void ChooseCamera(CameraMode mode) {settings.Camera=mode;Save();StartGame();}
   void CycleCamera() {EndMouseTurn();settings.Camera=(CameraMode)(((int)settings.Camera+1)%3);peekYaw=0;mouseCursorFree=false;Save();BeginMouseLook();}
   void Go(string value) {EndMouseTurn();page=value;peekYaw=0;mouseCursorFree=false;keys.Clear();focus=value=="camera"?(settings.Camera==CameraMode.FirstPerson?0:settings.Camera==CameraMode.ThirdPerson?1:2):-1;BeginMouseLook();Invalidate();}
@@ -65,7 +69,7 @@ namespace QuietCrossing {
     float strafe=(keys.Contains(Keys.D)||!perspective&&keys.Contains(Keys.Right)?1:0)-(keys.Contains(Keys.A)||!perspective&&keys.Contains(Keys.Left)?1:0);
     MapPoint movement=PlayerControls.Movement(settings.Camera,yaw,forward,strafe);game.Update(dt,movement.X,movement.Y);
     if(game.Result!=Outcome.Playing) {
-     if(game.Loss==LossReason.OutsideCrosswalk){StartGame();crosswalkNoticeUntil=now+2.5;Tone(150);}
+     if(game.Loss==LossReason.OutsideCrosswalk){Respawn();crosswalkNoticeUntil=now+2.5;Tone(150);}
      else {
       Go(game.Result==Outcome.Lost?"lost":"won");
       if(game.Result==Outcome.Won) {settings.Wins++;Save();}
@@ -94,14 +98,15 @@ namespace QuietCrossing {
   protected override bool IsInputKey(Keys keyData){Keys key=keyData&Keys.KeyCode;return key==Keys.Left||key==Keys.Right||key==Keys.Up||key==Keys.Down||key==Keys.Tab||key==Keys.Enter||key==Keys.Space||base.IsInputKey(keyData);}
   protected override void OnKeyDown(KeyEventArgs e) {
    base.OnKeyDown(e);bool firstPress=keys.Add(e.KeyCode);
-   if(firstPress&&e.KeyCode==Keys.Tab&&page=="play"&&Perspective){EndMouseTurn();mouseCursorFree=!mouseCursorFree;keys.Clear();BeginMouseLook();}
+   if(firstPress&&(e.KeyCode==Keys.F11||e.KeyCode==Keys.Enter&&e.Alt)){ToggleFullscreen();}
+   else if(firstPress&&e.KeyCode==Keys.Tab&&page=="play"&&Perspective){EndMouseTurn();mouseCursorFree=!mouseCursorFree;keys.Clear();BeginMouseLook();}
    else if(e.KeyCode==Keys.Escape || e.KeyCode==Keys.P) {
     if(page=="play")Go("pause");else if(page=="pause")Go("play");else if(page=="map")Go(mapReturn);else if(page=="settings")Go(returnPage);else if(page!="menu")Go("menu");
    } else if(page!="play" && (e.KeyCode==Keys.Tab || e.KeyCode==Keys.Down || e.KeyCode==Keys.Up)) {
     if(hits.Count>0)focus=(focus+(e.KeyCode==Keys.Up?-1:1)+hits.Count)%hits.Count;
    } else if(page!="play" && (e.KeyCode==Keys.Enter || e.KeyCode==Keys.Space)) {
     if(hits.Count>0)hits[Math.Max(0,Math.Min(focus,hits.Count-1))].Action();
-   } else if(e.KeyCode==Keys.R && (page=="lost"||page=="won"))StartGame();
+   } else if(e.KeyCode==Keys.R && (page=="lost"||page=="won")){if(page=="lost")Respawn();else StartGame();}
    else if(firstPress && e.KeyCode==Keys.V && (page=="play"||page=="pause"))CycleCamera();
    else if(firstPress && e.KeyCode==Keys.M && (page=="play"||page=="pause"||page=="map")){if(page=="map")Go(mapReturn);else OpenMap();}
    e.Handled=true;e.SuppressKeyPress=true;Invalidate();
@@ -150,7 +155,7 @@ namespace QuietCrossing {
     Rect(g,ink,12,293,456,19);Center(g,settings.Camera==CameraMode.Bird?"WASD / стрелки — идти     M — карта     V — вид     Esc — пауза":mouseCursorFree?"Курсор свободен · Tab или щелчок по сцене — вернуть обзор":"WASD — идти   Мышь — поворот   Q/E — взгляд   Tab — курсор   Esc — пауза",296,9,cream);
     DrawRouteHud(g);
     DrawSignalHud(g);
-    if(watch.Elapsed.TotalSeconds<crosswalkNoticeUntil){Rect(g,ink,45,273,338,16);TextAt(g,"Вышел за зебру — новая попытка с точки А",54,276,9,cream,true);}
+    if(watch.Elapsed.TotalSeconds<crosswalkNoticeUntil){Rect(g,ink,45,273,338,16);TextAt(g,"Вышел за зебру — возврат к точке "+(game.CompletedRoads==0?"А":game.CompletedRoads.ToString()),54,276,9,cream,true);}
     return;
    }
    using(var b=new SolidBrush(Color.FromArgb(172,25,43,39)))g.FillRectangle(b,0,0,480,320);
@@ -162,7 +167,7 @@ namespace QuietCrossing {
     Button(g,"Настройки",151,201,178,delegate{returnPage="menu";Go("settings");});
     Button(g,"Выход",151,235,178,Close);
     Center(g,"WASD / стрелки • Esc — пауза",282,9,mint);
-    TextAt(g,"v1.7.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
+    TextAt(g,"v1.8.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
    } else if(page=="camera") {
     Center(g,"ВЫБЕРИ ВИД",35,24,cream,true);
     Center(g,"360 переходов · короткие тротуары · свободный поворот",72,10,mint);
@@ -181,24 +186,26 @@ namespace QuietCrossing {
     string[] labels={"Спокойный","Обычный","Плотный"};
     for(int i=0;i<3;i++){int d=i;Button(g,labels[i],84+i*106,145,100,delegate{settings.Difficulty=d;Save();},settings.Difficulty==i);}
     Center(g,"Изменение сложности применяется к новой игре.",179,9,mint);
-    Button(g,"Звуки: "+(settings.Sound?"включены":"выключены"),121,205,238,delegate{settings.Sound=!settings.Sound;Save();if(settings.Sound)Tone(440);});
-    Button(g,"Готово",151,244,178,delegate{Go(returnPage);},true);
-    Center(g,notice,285,8,cream);
+    Button(g,"Полный экран: "+(fullscreen?"да":"нет")+"  [F11]",121,194,238,ToggleFullscreen);
+    Button(g,"Звуки: "+(settings.Sound?"включены":"выключены"),121,230,238,delegate{settings.Sound=!settings.Sound;Save();if(settings.Sound)Tone(440);});
+    Button(g,"Готово",151,268,178,delegate{Go(returnPage);},true);
+    Center(g,notice,304,8,cream);
    } else {
     bool lost=page=="lost",won=page=="won";
     Center(g,lost?"НЕ В ЭТОТ РАЗ":won?"ТЫ ДОШЁЛ ДО ТОЧКИ Б!":"ПАУЗА",68,22,cream,true);
-    Center(g,lost?"Пройдено "+game.CompletedRoads+" из "+CityMap.Streets.Length+" переходов. Начнём маршрут заново?":won?"Весь город позади. Маршрут пройден.":"Выдохни. Город подождёт. M — открыть карту.",107,10,mint);
+    Center(g,lost?"Возвращаемся к контрольной точке "+(game.CompletedRoads==0?"А":game.CompletedRoads.ToString())+". Прогресс сохранён.":won?"Весь город позади. Маршрут пройден.":"Выдохни. Город подождёт. M — открыть карту.",107,10,mint);
     if(lost||won)Center(g,"Время: "+Game.Duration(game.Time),132,10,cream);
-    Button(g,page=="pause"?"Продолжить":"Ещё раз  →",151,167,178,page=="pause"?(Action)(()=>Go("play")):StartGame,true);
+    Button(g,page=="pause"?"Продолжить":"Ещё раз  →",151,167,178,page=="pause"?(Action)(()=>Go("play")):lost?Respawn:(Action)StartGame,true);
     if(page=="pause")Button(g,"Настройки",151,201,178,delegate{returnPage="pause";Go("settings");});
     Button(g,"Главное меню",151,page=="pause"?235:205,178,delegate{Go("menu");});
-    Center(g,lost||won?"R — начать заново":"Esc — продолжить",282,9,mint);
+    Center(g,lost?"R — к контрольной точке":won?"R — начать заново":"Esc — продолжить · F11 — полный экран",282,9,mint);
    }
   }
   protected override void OnPaint(PaintEventArgs e) {
-   base.OnPaint(e);using(Graphics g=Graphics.FromImage(scene))Draw(g);
-   int scale=Math.Max(1,Math.Min(ClientSize.Width/480,ClientSize.Height/320));
-   viewport=new Rectangle((ClientSize.Width-480*scale)/2,(ClientSize.Height-320*scale)/2,480*scale,320*scale);
+   base.OnPaint(e);RecordFrame();using(Graphics g=Graphics.FromImage(scene)){Draw(g);DrawFps(g);}
+   float scale=Math.Min(ClientSize.Width/480f,ClientSize.Height/320f);
+   int width=(int)(480*scale),height=(int)(320*scale);
+   viewport=new Rectangle((ClientSize.Width-width)/2,(ClientSize.Height-height)/2,width,height);
    e.Graphics.InterpolationMode=InterpolationMode.NearestNeighbor;e.Graphics.PixelOffsetMode=PixelOffsetMode.Half;e.Graphics.DrawImage(scene,viewport);
   }
   void CapturePreviews() {
@@ -322,10 +329,13 @@ namespace QuietCrossing {
       if(w.game!=overlap||w.page!="play")throw new Exception("Partial crosswalk overlap must not restart: "+mode);
       Tests.VisitRoads(w.game,2);Game old=w.game;int beforeWins=w.settings.Wins;int difficulty=w.settings.Difficulty;Street road=CityMap.Streets[2];
       w.game.Cars.Clear();w.game.X=road.CrosswalkRight+Game.BodyHalfWidth+.5f;w.game.Y=road.Top+16;w.yaw=.6f;w.OnKeyDown(new KeyEventArgs(Keys.W));w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
-      if(w.game==old||w.page!="play"||w.game.Result!=Outcome.Playing||w.game.CompletedRoads!=0||w.game.Time!=0||w.game.X!=CityMap.Start.X||w.game.Y!=CityMap.Start.Y||w.yaw!=0||w.peekYaw!=0||w.lookPitch!=0||w.keys.Count!=0||w.mouseTurning!=(mode!=CameraMode.Bird)||w.Capture)throw new Exception("Full crosswalk exit must restart at A: "+mode);
+      if(w.game!=old||w.page!="play"||w.game.Result!=Outcome.Playing||w.game.CompletedRoads!=2||w.game.Time<=0||w.game.X!=CityMap.Streets[1].Exit.X||w.game.Y!=CityMap.Streets[1].Exit.Y||w.peekYaw!=0||w.lookPitch!=0||w.keys.Count!=0||w.mouseTurning!=(mode!=CameraMode.Bird)||w.Capture)throw new Exception("Full crosswalk exit must respawn at checkpoint 2: "+mode);
       if(w.settings.Camera!=mode||w.settings.Difficulty!=difficulty||w.settings.Wins!=beforeWins||w.crosswalkNoticeUntil<=w.watch.Elapsed.TotalSeconds)throw new Exception("Crosswalk restart must preserve settings and explain cause: "+mode);render();
+      w.game.Cars.Clear();w.game.X=road.CrossX;w.game.Y=road.Top+16;w.game.Cars.Add(new Car(w.game.X,w.game.Y,0,29,0));w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
+      if(w.page!="lost")throw new Exception("Checkpoint collision screen: "+mode);click("Ещё раз  →");
+      if(w.game!=old||w.game.CompletedRoads!=2||w.game.Y!=CityMap.Streets[1].Exit.Y||w.page!="play")throw new Exception("Collision retry from checkpoint 2: "+mode);
      }
-     log.AppendLine("PASS all three cameras: partial zebra overlap continues, full exit restarts entire route at A, settings preserved and reason shown");
+     log.AppendLine("PASS all three cameras: partial zebra overlap continues, full exit returns to checkpoint 2, time/settings preserved and reason shown");
      foreach(CameraMode mode in Enum.GetValues(typeof(CameraMode))){
       w.Go("menu");click("Играть  →");click(CameraName(mode));w.SetSignalPreview("signal-red");Street regulated=CityMap.Streets[9];w.game.Y=regulated.Bottom+Game.FootDepth;float curb=w.game.Y;Game same=w.game;
       w.OnKeyDown(new KeyEventArgs(Keys.W));w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.W));
@@ -340,6 +350,6 @@ namespace QuietCrossing {
     File.WriteAllText("ui-test-results.txt",log.ToString());return 0;
    } catch(Exception ex) {File.WriteAllText("ui-test-results.txt",log+"FAIL "+ex);return 1;}
   }
-  protected override void Dispose(bool disposing) {if(disposing){DisposeMouseLook();timer.Dispose();scene.Dispose();world.Dispose();if(soundPlayer!=null)soundPlayer.Dispose();if(soundStream!=null)soundStream.Dispose();}base.Dispose(disposing);}
+  protected override void Dispose(bool disposing) {if(disposing){DisposeDisplay();DisposeMouseLook();timer.Dispose();scene.Dispose();world.Dispose();if(soundPlayer!=null)soundPlayer.Dispose();if(soundStream!=null)soundStream.Dispose();}base.Dispose(disposing);}
  }
 }

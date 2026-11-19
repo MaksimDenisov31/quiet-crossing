@@ -100,10 +100,14 @@ namespace QuietCrossing {
     game=new Game(1,12);WalkRoute(game);Check(game.Result==Outcome.Won&&game.CompletedRoads==CityMap.Streets.Length&&game.Time>=1200,"entire marked walking route is traversable without teleporting",log);
     log.AppendLine("INFO full-speed route, traffic removed: "+Game.Duration(game.Time));
     TrafficChecks(log);
+    CheckpointChecks(log);
     Directory.CreateDirectory(folder);string path=Path.Combine(folder,"settings.xml");
-    var settings=new Settings{Sound=false,Difficulty=2,Width=1111,Height=777,Wins=3,Maximized=true};Check(settings.Save(path),"settings initial save",log);
+    var settings=new Settings{Sound=false,Difficulty=2,Width=1111,Height=777,Wins=3,Maximized=true,Fullscreen=false};Check(settings.Save(path),"settings initial save",log);
     settings.Wins=4;Check(settings.Save(path),"settings atomic replacement",log);
     settings=Settings.Load(path);Check(!settings.Sound&&settings.Difficulty==2&&settings.Width==1111&&settings.Height==777&&settings.Wins==4&&settings.Maximized,"settings round trip",log);
+    Check(!settings.Fullscreen,"windowed display preference saved",log);
+    File.WriteAllText(path,File.ReadAllText(path).Replace("  <Fullscreen>false</Fullscreen>",""));
+    Check(Settings.Load(path).Fullscreen,"old settings default to fullscreen without losing other fields",log);
     string legacy=File.ReadAllText(path).Replace("  <Camera>Bird</Camera>","");File.WriteAllText(path,legacy);
     settings=Settings.Load(path);Check(settings.Camera==CameraMode.Bird&&!settings.Sound&&settings.Wins==4&&settings.Width==1111,"v1.0 settings migrate without resetting user data",log);
     foreach(CameraMode camera in Enum.GetValues(typeof(CameraMode))) {

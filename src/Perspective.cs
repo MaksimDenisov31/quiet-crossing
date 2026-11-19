@@ -125,13 +125,24 @@ namespace QuietCrossing {
    float wa=((b.Y-c.Y)*(left+.5f-c.X)+(c.X-b.X)*(top+.5f-c.Y))*inv;
    float wb=((c.Y-a.Y)*(left+.5f-c.X)+(a.X-c.X)*(top+.5f-c.Y))*inv;
    for(int y=top;y<=bottom;y++,wa+=day,wb+=dby) {
-    float u=wa,v=wb;
-    for(int x=left;x<=right;x++,u+=dax,v+=dbx) {
-     float w=1-u-v;if(u<-.00001f||v<-.00001f||w<-.00001f)continue;
+    // Clip each scanline to its triangle span instead of testing the entire
+    // bounding rectangle, especially expensive for long clipped road surfaces.
+    float start=0,end=right-left;
+    if(!ClipSpan(wa,dax,ref start,ref end)||!ClipSpan(wb,dbx,ref start,ref end)||!ClipSpan(1-wa-wb,-dax-dbx,ref start,ref end))continue;
+    int first=left+(int)Math.Ceiling(start),last=left+(int)Math.Floor(end);
+    float u=wa+(first-left)*dax,v=wb+(first-left)*dbx;
+    for(int x=first;x<=last;x++,u+=dax,v+=dbx) {
+     float w=1-u-v;
      float z=u*a.Z+v*b.Z+w*c.Z;int index=y*W+x;
      if(z>depth[index]){depth[index]=z;pixels[index]=color;}
     }
    }
+  }
+  static bool ClipSpan(float value,float slope,ref float start,ref float end){
+   if(Math.Abs(slope)<1e-12f)return value>=-.00001f;
+   float crossing=(-.00001f-value)/slope;
+   if(slope>0)start=Math.Max(start,crossing);else end=Math.Min(end,crossing);
+   return start<=end;
   }
   public void Dispose(){frame.Dispose();}
  }

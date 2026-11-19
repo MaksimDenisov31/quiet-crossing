@@ -28,6 +28,11 @@ namespace QuietCrossing {
   public Outcome Result=Outcome.Playing;
   public LossReason Loss{get;private set;}
   public int Difficulty;
+  public MapPoint Checkpoint {get{return CompletedRoads==0?CityMap.Start:CityMap.Streets[CompletedRoads-1].Exit;}}
+  public void Respawn() {
+   MapPoint point=Checkpoint;positionX=point.X;positionY=point.Y;
+   Result=Outcome.Playing;Loss=LossReason.None;
+  }
   public MapPoint Target {get{return CompletedRoads<CityMap.Streets.Length?CityMap.Streets[CompletedRoads].Exit:CityMap.Finish;}}
   public string TargetName {get{return CompletedRoads<CityMap.Streets.Length?CityMap.Streets[CompletedRoads].Name:"Точка Б · набережная";}}
   public float RemainingDistance {
