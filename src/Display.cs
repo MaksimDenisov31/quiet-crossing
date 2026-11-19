@@ -43,7 +43,8 @@ namespace QuietCrossing {
    if(now-fpsSince>=.5){measuredFps=(float)(fpsFrames/(now-fpsSince));fpsFrames=0;fpsSince=now;}
   }
   void DrawFps(Graphics g){
-   Rect(g,ink,394,70,73,17);TextAt(g,"FPS "+(measuredFps>0?measuredFps.ToString("0"):"—"),401,73,9,mint,true);
+   float y=page=="play"?70:12;
+   Rect(g,ink,394,y,73,17);TextAt(g,"FPS "+(measuredFps>0?measuredFps.ToString("0"):"—"),401,y+3,9,mint,true);
   }
   void DisposeDisplay(){if(preciseTimer){timeEndPeriod(1);preciseTimer=false;}}
  }

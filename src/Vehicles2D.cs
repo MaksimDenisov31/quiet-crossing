@@ -46,6 +46,7 @@ namespace QuietCrossing {
    VR(g,c,cream,front-2,-d/2+1,2,3);VR(g,c,cream,front-2,d/2-4,2,3);VR(g,c,red,back,-d/2+1,1,3);VR(g,c,red,back,d/2-4,1,3);
   }
   void CaptureVehicleGallery(){
+   BeginTextFrame();
    int count=Enum.GetValues(typeof(VehicleKind)).Length,rows=(count+1)/2;
    using(var canvas=new Bitmap(480,rows*52+34))using(Graphics g=Graphics.FromImage(canvas)){
     g.Clear(ink);Center(g,"ТРАНСПОРТ ГОРОДА",8,16,cream,true);
@@ -53,7 +54,7 @@ namespace QuietCrossing {
      float x=12+(i%2)*238,y=34+(i/2)*52;Rect(g,Color.FromArgb(65,78,80),x,y,222,29);
      DrawVehicle(g,new Car(x+110,y+14,60,(VehicleKind)i,i%5),.25f);TextAt(g,Vehicles.Spec((VehicleKind)i).Name,x+3,y+33,9,cream);
     }
-    using(var output=new Bitmap(canvas.Width*2,canvas.Height*2))using(Graphics scaled=Graphics.FromImage(output)){scaled.InterpolationMode=InterpolationMode.NearestNeighbor;scaled.PixelOffsetMode=PixelOffsetMode.Half;scaled.DrawImage(canvas,0,0,output.Width,output.Height);output.Save("docs/traffic-gallery.png",ImageFormat.Png);}
+    using(var output=new Bitmap(canvas.Width*2,canvas.Height*2))using(Graphics scaled=Graphics.FromImage(output)){scaled.InterpolationMode=InterpolationMode.NearestNeighbor;scaled.PixelOffsetMode=PixelOffsetMode.Half;scaled.DrawImage(canvas,0,0,output.Width,output.Height);DrawCaptions(scaled,new Rectangle(0,0,output.Width,output.Height),canvas.Width,canvas.Height);output.Save("docs/traffic-gallery.png",ImageFormat.Png);}
    }
   }
  }
