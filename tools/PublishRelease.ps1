@@ -26,7 +26,9 @@ if ($CreateRepository) {
     Write-Output ('Repository ready: ' + $existing.html_url)
 }
 if ($Release) {
-    $sha = (git rev-parse HEAD).Trim()
+    $revision = git -c "safe.directory=$project" rev-parse HEAD
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release commit.' }
+    $sha = $revision.Trim()
     $body = @{
         tag_name='v1.0.0'; target_commitish=$sha; name='Тихий переход 1.0.0'; draft=$false; prerelease=$false
         body="Первый рабочий выпуск.`n`n- Пиксельная дорога, зебра и четыре полосы случайного движения.`n- Меню, настройки, пауза, поражение, победа и быстрый повтор.`n- Три сложности, звуки и сохранение настроек и размера окна.`n- Управление: WASD / стрелки; Esc — пауза; R — новая попытка.`n`nWindows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
