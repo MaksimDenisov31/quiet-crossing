@@ -8,10 +8,17 @@ namespace QuietCrossing {
   [DllImport("winmm.dll")] static extern uint timeBeginPeriod(uint period);
   [DllImport("winmm.dll")] static extern uint timeEndPeriod(uint period);
   bool fullscreen,preciseTimer;Rectangle windowBounds;bool windowMaximized;
-  double nextFrame,fpsSince;int fpsFrames;float measuredFps;
+  double fpsSince,nextMonitorCheck;int fpsFrames;float measuredFps;
+  int targetFps=60;string monitorDevice="";bool displayDirty=true;
+  Func<string,int> monitorRateReader=MonitorRefresh.Read;
+  double frameWork,paintWork,sceneWork,pixelWork,textWork;int presentedFrames;
+  const int FrameMessage=0x8001;
+  [DllImport("user32.dll",EntryPoint="PostMessageW")]
+  [return:MarshalAs(UnmanagedType.Bool)] static extern bool PostFrame(IntPtr handle,int message,IntPtr wParam,IntPtr lParam);
   void InitializeDisplay(){
    windowBounds=Bounds;windowMaximized=WindowState==FormWindowState.Maximized;
    if(!preview){preciseTimer=timeBeginPeriod(1)==0;if(settings.Fullscreen)SetFullscreen(true);}
+   RefreshMonitor();
   }
   void StoreWindowBounds(){
    Rectangle bounds=fullscreen?windowBounds:WindowState==FormWindowState.Normal?Bounds:RestoreBounds;
@@ -32,11 +39,18 @@ namespace QuietCrossing {
    }
    BeginMouseLook();Invalidate();
   }
-  void ScheduledTick(object sender,EventArgs e){
-   double now=watch.Elapsed.TotalSeconds;if(now<nextFrame)return;
-   // Keep a stable 60 Hz deadline without adding a full timer interval to rendering time.
-   nextFrame+=1.0/60;if(nextFrame<now)nextFrame=now+1.0/60;
-   Tick(sender,e);
+  void RefreshMonitor(){
+   Screen display=Screen.FromControl(this);if(fullscreen&&Bounds!=display.Bounds)Bounds=display.Bounds;
+   monitorDevice=display.DeviceName;targetFps=monitorRateReader(monitorDevice);
+   if(timer!=null)timer.Rate=targetFps;
+   displayDirty=false;nextMonitorCheck=watch.Elapsed.TotalSeconds+1;
+  }
+  bool HandleFrameMessage(ref Message message){
+   if(message.Msg!=FrameMessage)return false;
+   double start=watch.Elapsed.TotalSeconds;
+   try{if(timer!=null&&timer.Running&&!IsDisposed){Tick(this,EventArgs.Empty);Update();frameWork+=watch.Elapsed.TotalSeconds-start;presentedFrames++;}}
+   finally{if(timer!=null)timer.Presented();}
+   message.Result=IntPtr.Zero;return true;
   }
   void RecordFrame(){
    double now=watch.Elapsed.TotalSeconds;fpsFrames++;
@@ -44,7 +58,8 @@ namespace QuietCrossing {
   }
   void DrawFps(Graphics g){
    float y=page=="play"?70:12;
-   Rect(g,ink,394,y,73,17);TextAt(g,"FPS "+(measuredFps>0?measuredFps.ToString("0"):"—"),401,y+3,9,mint,true);
+   Rect(g,ink,380,y,87,27);TextAt(g,"FPS "+(measuredFps>0?measuredFps.ToString("0"):"—")+" / "+targetFps,386,y+3,9,mint,true);
+   TextAt(g,"Монитор: "+targetFps+" Гц",386,y+16,7,cream);
   }
   void DisposeDisplay(){if(preciseTimer){timeEndPeriod(1);preciseTimer=false;}}
  }

@@ -30,12 +30,12 @@ if ($Release) {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release commit.' }
     $sha = $revision.Trim()
     $body = @{
-        tag_name='v1.9.0'; target_commitish=$sha; name='Тихий переход 1.9.0 — чёткий текст и предупреждение о зебре'; draft=$false; prerelease=$false
-        body="Чёткие надписи и понятное предупреждение о нарушении зебры.`n`n- Весь текст рисуется сглаженным шрифтом в разрешении окна: меню, кнопки, карта, номера точек, подсказки и FPS.`n- Пиксельный вид машин, персонажа и окружения сохранён.`n- Полный выход за зебру открывает окно «За зебру выходить нельзя» с объяснением возврата к контрольной точке.`n- Игра стоит на паузе до подтверждения кнопкой, Enter, пробелом или Esc; курсор освобождается.`n- Частичный выход за край разрешён. Контрольные точки, три камеры, полноэкранный режим, транспорт и светофоры сохранены.`n`nWindows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
+        tag_name='v1.10.0'; target_commitish=$sha; name='Тихий переход 1.10.0 — FPS по частоте монитора'; draft=$false; prerelease=$false
+        body="Частота кадров подстраивается под монитор.`n`n- Убрано ограничение в 60 FPS. Цель автоматически совпадает с текущей частотой экрана в Windows: 120/144/165/170/240 Гц и другие режимы.`n- Перенос окна на другой экран и изменения настроек дисплея обновляют цель без перезапуска игры.`n- Новый высокоточный планировщик не накапливает устаревшие кадры.`n- Ускорены вывод и масштабирование кадра, работа со шрифтами и отрисовка объёмных объектов.`n- Счётчик показывает фактический FPS, цель и герцы монитора.`n- Сглаженные надписи, пиксельная графика, все камеры, транспорт, светофоры, контрольные точки и предупреждение о зебре сохранены.`n`nФактический FPS зависит от компьютера и нагрузки. Настройки дисплея игра не меняет. Windows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
     } | ConvertTo-Json
     $releaseInfo = Invoke-RestMethod -Method Post -Uri "$base/repos/$repo/releases" -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     $upload = $releaseInfo.upload_url -replace '\{.*$', ''
-    foreach ($name in @('QuietCrossing-Setup-1.9.0.exe','QuietCrossing-Portable-1.9.0.zip','SHA256SUMS.txt')) {
+    foreach ($name in @('QuietCrossing-Setup-1.10.0.exe','QuietCrossing-Portable-1.10.0.zip','SHA256SUMS.txt')) {
         $file = Join-Path $project "installer-output\$name"
         $asset = Invoke-RestMethod -Method Post -Uri ($upload + '?name=' + [Uri]::EscapeDataString($name)) -Headers $headers -ContentType 'application/octet-stream' -InFile $file
         Write-Output ($asset.name + ': ' + $asset.browser_download_url)

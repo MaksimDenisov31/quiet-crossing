@@ -28,7 +28,7 @@ namespace QuietCrossing {
   Settings settings; Game game; string page="menu",returnPage="menu";
   readonly HashSet<Keys> keys=new HashSet<Keys>();
   readonly List<Hit> hits=new List<Hit>();
-  readonly Timer timer=new Timer(); readonly Stopwatch watch=Stopwatch.StartNew();
+  readonly FramePump timer; readonly Stopwatch watch=Stopwatch.StartNew();
   readonly Bitmap scene=new Bitmap(480,320);
   SoundPlayer soundPlayer; MemoryStream soundStream;
   PointF mouse=new PointF(-1,-1); int focus=-1; double previous; float ambient;
@@ -41,11 +41,11 @@ namespace QuietCrossing {
    Text="Тихий переход"; MinimumSize=new Size(760,560);StartPosition=FormStartPosition.CenterScreen;
    Size=new Size(Math.Min(Screen.PrimaryScreen.WorkingArea.Width,Math.Max(760,settings.Width)),Math.Min(Screen.PrimaryScreen.WorkingArea.Height,Math.Max(560,settings.Height)));
    if(settings.Maximized) WindowState=FormWindowState.Maximized;
-   DoubleBuffered=true;KeyPreview=true;BackColor=ink;
+   DoubleBuffered=false;SetStyle(ControlStyles.AllPaintingInWmPaint|ControlStyles.UserPaint|ControlStyles.Opaque,true);KeyPreview=true;BackColor=ink;
    using(var stream=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("QuietCrossing.Icon")) if(stream!=null) Icon=new Icon(stream);
    game=new Game(1,1234);
    InitializeDisplay();
-   timer.Interval=1;timer.Tick+=ScheduledTick;timer.Start();
+   IntPtr frameWindow=Handle;timer=new FramePump(()=>PostFrame(frameWindow,FrameMessage,IntPtr.Zero,IntPtr.Zero));timer.Rate=targetFps;timer.Start();
    Deactivate+=delegate {EndMouseTurn(false);peekYaw=0;keys.Clear();if(page=="play") {page="pause";focus=-1;Invalidate();}};
    FormClosing+=delegate {EndMouseTurn();if(!preview) {StoreWindowBounds();settings.Save(Settings.PathName);}};
    if(preview && capture) Shown+=delegate {CapturePreviews();Close();};
@@ -57,6 +57,7 @@ namespace QuietCrossing {
   void CycleCamera() {EndMouseTurn();settings.Camera=(CameraMode)(((int)settings.Camera+1)%3);peekYaw=0;mouseCursorFree=false;Save();BeginMouseLook();}
   void Go(string value) {EndMouseTurn();page=value;peekYaw=0;mouseCursorFree=false;keys.Clear();focus=value=="camera"?(settings.Camera==CameraMode.FirstPerson?0:settings.Camera==CameraMode.ThirdPerson?1:2):-1;BeginMouseLook();Invalidate();}
   void Tick(object sender,EventArgs e) {
+   if(displayDirty||watch.Elapsed.TotalSeconds>=nextMonitorCheck)RefreshMonitor();
    double now=watch.Elapsed.TotalSeconds;float dt=(float)Math.Min(0.05,now-previous);previous=now;ambient+=dt;
    SyncMouseLook();
    if(page=="play") {
@@ -173,7 +174,7 @@ namespace QuietCrossing {
     Button(g,"Настройки",151,201,178,delegate{returnPage="menu";Go("settings");});
     Button(g,"Выход",151,235,178,Close);
     Center(g,"WASD / стрелки • Esc — пауза",282,9,mint);
-    TextAt(g,"v1.9.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
+    TextAt(g,"v1.10.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
    } else if(page=="camera") {
     Center(g,"ВЫБЕРИ ВИД",35,24,cream,true);
     Center(g,"360 переходов · короткие тротуары · свободный поворот",72,10,mint);
@@ -208,11 +209,14 @@ namespace QuietCrossing {
    }
   }
   protected override void OnPaint(PaintEventArgs e) {
+   if(ClientSize.Width<1||ClientSize.Height<1)return;
+   double start=watch.Elapsed.TotalSeconds;
    base.OnPaint(e);RecordFrame();
    float scale=Math.Min(ClientSize.Width/480f,ClientSize.Height/320f);
    int width=(int)(480*scale),height=(int)(320*scale);
    viewport=new Rectangle((ClientSize.Width-width)/2,(ClientSize.Height-height)/2,width,height);
-   RenderFrame(e.Graphics,viewport);
+   EnsureSurface();RenderFrame(surfaceGraphics,viewport);BlitSurface(e.Graphics);
+   paintWork+=watch.Elapsed.TotalSeconds-start;
   }
   void CapturePreviews() {
    Directory.CreateDirectory("docs");
@@ -361,6 +365,6 @@ namespace QuietCrossing {
     File.WriteAllText("ui-test-results.txt",log.ToString());return 0;
    } catch(Exception ex) {File.WriteAllText("ui-test-results.txt",log+"FAIL "+ex);return 1;}
   }
-  protected override void Dispose(bool disposing) {if(disposing){ClearCaptions();DisposeDisplay();DisposeMouseLook();timer.Dispose();scene.Dispose();world.Dispose();if(soundPlayer!=null)soundPlayer.Dispose();if(soundStream!=null)soundStream.Dispose();}base.Dispose(disposing);}
+  protected override void Dispose(bool disposing) {if(disposing){timer.Dispose();ClearCaptions();foreach(Font font in captionFonts.Values)font.Dispose();captionFonts.Clear();DisposeSurface();DisposeDisplay();DisposeMouseLook();scene.Dispose();world.Dispose();if(soundPlayer!=null)soundPlayer.Dispose();if(soundStream!=null)soundStream.Dispose();}base.Dispose(disposing);}
  }
 }

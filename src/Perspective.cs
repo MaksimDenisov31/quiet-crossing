@@ -88,8 +88,14 @@ namespace QuietCrossing {
   void Box(float x1,float y1,float h1,float x2,float y2,float h2,Color c) {
    Vertex a=new Vertex(x1,y1,h1),b=new Vertex(x2,y1,h1),cc=new Vertex(x2,y2,h1),d=new Vertex(x1,y2,h1);
    Vertex aa=new Vertex(x1,y1,h2),bb=new Vertex(x2,y1,h2),ccc=new Vertex(x2,y2,h2),dd=new Vertex(x1,y2,h2);
-   Quad(aa,bb,ccc,dd,c);Quad(a,b,bb,aa,Shade(c,.82f));Quad(d,cc,ccc,dd,Shade(c,.94f));
-   Quad(a,d,dd,aa,Shade(c,.73f));Quad(b,cc,ccc,bb,Shade(c,.88f));
+   // Axis-aligned boxes only need faces visible from the camera. Avoid shading
+   // hidden walls/vehicle panels and their depth-buffer overdraw.
+   if(cameraHeight>=h2)Quad(aa,bb,ccc,dd,c);
+   else if(cameraHeight<h1)Quad(a,d,cc,b,Shade(c,.65f));
+   if(cameraY<y1)Quad(a,b,bb,aa,Shade(c,.82f));
+   if(cameraY>y2)Quad(d,cc,ccc,dd,Shade(c,.94f));
+   if(cameraX<x1)Quad(a,d,dd,aa,Shade(c,.73f));
+   if(cameraX>x2)Quad(b,cc,ccc,bb,Shade(c,.88f));
   }
   Vertex View(Vertex p) {
    float dx=p.X-cameraX,dy=p.Y-cameraY,up=p.Z-cameraHeight;

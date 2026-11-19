@@ -22,7 +22,7 @@ namespace QuietCrossing {
      w.ClientSize=new Size(w.ClientSize.Width+20,w.ClientSize.Height+20);expected=w.RectangleToScreen(w.ClientRectangle);expected.Inflate(-2,-2);expected=Rectangle.Intersect(expected,SystemInformation.VirtualScreen);
      if(MouseCursor.Clip!=expected)throw new Exception("Resize did not update mouse bounds");
      w.SetFullscreen(true);Application.DoEvents();w.SyncMouseLook();expected=w.RectangleToScreen(w.ClientRectangle);expected.Inflate(-2,-2);expected=Rectangle.Intersect(expected,SystemInformation.VirtualScreen);
-     if(MouseCursor.Clip!=expected||!w.cursorHidden)throw new Exception("Fullscreen did not update mouse bounds");
+     if(MouseCursor.Clip!=expected||!w.cursorHidden)throw new Exception("Fullscreen did not update mouse bounds; page="+w.page+", focus="+w.ContainsFocus+", hidden="+w.cursorHidden+", expected="+expected+", actual="+MouseCursor.Clip);
      w.SetFullscreen(false);Application.DoEvents();w.SyncMouseLook();
      log.AppendLine("PASS fullscreen/windowed transitions update real mouse lock and preserve hidden cursor");
      w.Go("map");if(w.mouseTurning||w.cursorHidden||MouseCursor.Clip!=originalClip)throw new Exception("Map did not restore cursor");

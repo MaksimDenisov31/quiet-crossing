@@ -101,6 +101,7 @@ namespace QuietCrossing {
     log.AppendLine("INFO full-speed route, traffic removed: "+Game.Duration(game.Time));
     TrafficChecks(log);
     CheckpointChecks(log);
+    FrameChecks(log);
     Directory.CreateDirectory(folder);string path=Path.Combine(folder,"settings.xml");
     var settings=new Settings{Sound=false,Difficulty=2,Width=1111,Height=777,Wins=3,Maximized=true,Fullscreen=false};Check(settings.Save(path),"settings initial save",log);
     settings.Wins=4;Check(settings.Save(path),"settings atomic replacement",log);

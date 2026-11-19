@@ -41,13 +41,13 @@ namespace QuietCrossing {
   }
   void SyncMouseLook(){
    if(mouseTurning&&(page!="play"||!Perspective||mouseCursorFree||(!preview&&!ContainsFocus)))EndMouseTurn(false);
-   if(!mouseTurning)BeginMouseLook();
+   if(!mouseTurning)BeginMouseLook();else if(!preview)UpdateMouseClip();
   }
   void UpdateMouseClip(){if(!mouseTurning||preview||!IsHandleCreated)return;Rectangle bounds=RectangleToScreen(ClientRectangle);bounds.Inflate(-2,-2);bounds=Rectangle.Intersect(bounds,SystemInformation.VirtualScreen);if(bounds.Width>0&&bounds.Height>0)MouseCursor.Clip=bounds;}
   void CenterMouse(){turnMousePoint=MouseCenter;if(!preview&&IsHandleCreated)MouseCursor.Position=PointToScreen(turnMousePoint);}
   void ApplyMouseDelta(float dx,float dy){
    if(!mouseTurning||page!="play"||!Perspective||mouseCursorFree)return;
-   yaw=PlayerControls.Wrap(yaw+dx*.005f);lookPitch=Math.Max(-.7f,Math.Min(.8f,lookPitch+dy*.0035f));Invalidate();
+   yaw=PlayerControls.Wrap(yaw+dx*.005f);lookPitch=Math.Max(-.7f,Math.Min(.8f,lookPitch+dy*.0035f));
   }
   void TurnMouse(MouseEventArgs e){
    if(!mouseTurning)return;
@@ -68,9 +68,9 @@ namespace QuietCrossing {
    rawAbsolute=false;
    ApplyMouseDelta(Marshal.ReadInt32(rawMouseBuffer,offset+12),Marshal.ReadInt32(rawMouseBuffer,offset+16));
   }
-  protected override void WndProc(ref Message message){if(message.Msg==0x00FF)ReadRawMouse(message.LParam);base.WndProc(ref message);}
+  protected override void WndProc(ref Message message){if(HandleFrameMessage(ref message))return;if(message.Msg==0x007E)displayDirty=true;if(message.Msg==0x00FF)ReadRawMouse(message.LParam);base.WndProc(ref message);}
   protected override void OnResize(EventArgs e){base.OnResize(e);if(mouseTurning){if(WindowState==FormWindowState.Minimized)EndMouseTurn(false);else UpdateMouseClip();}}
-  protected override void OnLocationChanged(EventArgs e){base.OnLocationChanged(e);if(mouseTurning)UpdateMouseClip();}
+  protected override void OnLocationChanged(EventArgs e){base.OnLocationChanged(e);displayDirty=true;if(mouseTurning)UpdateMouseClip();}
   void DisposeMouseLook(){EndMouseTurn(false);if(rawMouseBuffer!=IntPtr.Zero){Marshal.FreeHGlobal(rawMouseBuffer);rawMouseBuffer=IntPtr.Zero;}}
  }
 }
