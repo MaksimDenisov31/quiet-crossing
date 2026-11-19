@@ -30,12 +30,12 @@ if ($Release) {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release commit.' }
     $sha = $revision.Trim()
     $body = @{
-        tag_name='v1.4.0'; target_commitish=$sha; name='Тихий переход 1.4.0 — поворот и дороги без долгих прогулок'; draft=$false; prerelease=$false
-        body="Полноценный поворот и более плотный маршрут с машинами.`n`n- E / стрелка вправо — повернуть направо; Q / влево — налево. Направление сохраняется после отпускания.`n- Удерживать ПКМ и двигать мышь — свободный поворот. W/S идут относительно взгляда, A/D — в стороны.`n- Персонаж в третьем лице также поворачивается; карта, пауза и смена камеры сохраняют направление.`n- Дороги сближены в шесть раз, боковые перемещения между зебрами ограничены 100 единицами. На улицах 2–5 полос.`n- Минимум 20 минут сохранён количеством насыщенных переходов: 360 улиц в 12 районах. По разметке без машин около 27:45; нижняя граница даже со срезами — 21:00.`n- Проверены поворот и отпускание кнопок через настоящую очередь сообщений окна; настройки пользователя сохранены.`n`nM — карта, V — вид, Esc — пауза, R — повтор после столкновения. Windows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
+        tag_name='v1.5.0'; target_commitish=$sha; name='Тихий переход 1.5.0 — дорогу нужно переходить по зебре'; draft=$false; prerelease=$false
+        body="Добавлено обязательное движение по пешеходному переходу.`n`n- Полный выход персонажа за боковую границу зебры на проезжей части автоматически начинает маршрут заново с А.`n- Половина персонажа за краем, небольшой оставшийся участок на переходе и касание границы разрешены.`n- На тротуарах можно свободно ходить и поворачивать; выход на противоположный тротуар не считается нарушением.`n- Появляется сообщение о причине возврата. Правило одинаково во всех трёх видах камеры.`n- Камера, сложность и настройки сохраняются; столкновения с машинами работают как раньше.`n`nWASD — движение, Q/E или ←/→ — поворот, ПКМ + мышь — свободный поворот, M — карта, V — вид, Esc — пауза. Windows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
     } | ConvertTo-Json
     $releaseInfo = Invoke-RestMethod -Method Post -Uri "$base/repos/$repo/releases" -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     $upload = $releaseInfo.upload_url -replace '\{.*$', ''
-    foreach ($name in @('QuietCrossing-Setup-1.4.0.exe','QuietCrossing-Portable-1.4.0.zip','SHA256SUMS.txt')) {
+    foreach ($name in @('QuietCrossing-Setup-1.5.0.exe','QuietCrossing-Portable-1.5.0.zip','SHA256SUMS.txt')) {
         $file = Join-Path $project "installer-output\$name"
         $asset = Invoke-RestMethod -Method Post -Uri ($upload + '?name=' + [Uri]::EscapeDataString($name)) -Headers $headers -ContentType 'application/octet-stream' -InFile $file
         Write-Output ($asset.name + ': ' + $asset.browser_download_url)

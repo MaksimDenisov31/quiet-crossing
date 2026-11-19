@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace QuietCrossing {
  public enum Outcome { Playing, Lost, Won }
+ public enum LossReason { None, Car, OutsideCrosswalk }
  public sealed class Car {
   public float X,Y,Speed,Width;
   public int Color;
@@ -11,6 +12,7 @@ namespace QuietCrossing {
  sealed class TrafficLane {public float Y,Speed,Next,Pace;public bool Active;}
  public sealed class Game {
   public const float MoveSpeed=64;
+  public const float BodyHalfWidth=7,FootDepth=6;
   double positionX=CityMap.Start.X,positionY=CityMap.Start.Y,elapsed;
   readonly Random random;
   readonly List<TrafficLane> lanes=new List<TrafficLane>();
@@ -20,6 +22,7 @@ namespace QuietCrossing {
   public float Time{get{return (float)elapsed;}}
   public int CompletedRoads {get;private set;}
   public Outcome Result=Outcome.Playing;
+  public LossReason Loss{get;private set;}
   public int Difficulty;
   public MapPoint Target {get{return CompletedRoads<CityMap.Streets.Length?CityMap.Streets[CompletedRoads].Exit:CityMap.Finish;}}
   public string TargetName {get{return CompletedRoads<CityMap.Streets.Length?CityMap.Streets[CompletedRoads].Name:"Точка Б · набережная";}}
@@ -58,9 +61,18 @@ namespace QuietCrossing {
     }
     foreach(Car car in Cars) {
      car.X+=car.Speed*step;
-     if(X+4>car.X-car.Width/2&&X-4<car.X+car.Width/2&&Y>car.Y-7&&Y-6<car.Y+7)Result=Outcome.Lost;
+     if(X+4>car.X-car.Width/2&&X-4<car.X+car.Width/2&&Y>car.Y-7&&Y-6<car.Y+7){Result=Outcome.Lost;Loss=LossReason.Car;}
     }
     Cars.RemoveAll(c=>c.X < -90||c.X>CityMap.Width+90||Math.Abs(c.Y-Y)>1000);
+    // Sidewalk exits are legal. While feet overlap the roadway, the whole
+    // character must leave the zebra's side before the attempt is rejected.
+    // Contact with the boundary remains allowed; stripe gaps belong to the zebra.
+    if(Result!=Outcome.Won)foreach(Street street in CityMap.Streets){
+     if(positionY>street.Top&&positionY-FootDepth<street.Bottom&&
+       (positionX+BodyHalfWidth<street.CrosswalkLeft||positionX-BodyHalfWidth>street.CrosswalkRight)){
+      Result=Outcome.Lost;Loss=LossReason.OutsideCrosswalk;break;
+     }
+    }
     // Only the far safe curb counts. The entire route must be walked in order.
     if(Result==Outcome.Playing&&CompletedRoads<CityMap.Streets.Length) {
      MapPoint exit=Target;if(Math.Abs(X-exit.X)<=30&&Math.Abs(Y-exit.Y)<=21)CompletedRoads++;

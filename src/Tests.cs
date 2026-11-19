@@ -12,6 +12,9 @@ namespace QuietCrossing {
   internal static void Post(IntPtr handle,int message,int wParam,int lParam){if(!PostMessage(handle,message,new IntPtr(wParam),new IntPtr(lParam)))throw new Exception("Cannot post input to test window");}
  }
  static class Tests {
+  internal static Game CrosswalkCase(Street street,float x,float y){
+   var game=new Game(1,91);game.X=street.CrossX;game.Y=street.Bottom+20;game.Update(.001f,0,0);game.Cars.Clear();game.X=x;game.Y=y;return game;
+  }
   internal static void VisitRoads(Game game,int count){
    while(game.CompletedRoads<count){MapPoint p=game.Target;game.X=p.X;game.Y=p.Y;game.Cars.Clear();int before=game.CompletedRoads;game.Update(.001f,0,0);if(game.CompletedRoads==before)throw new Exception("Route setup failed");}
   }
@@ -50,9 +53,28 @@ namespace QuietCrossing {
     MapPoint bird=PlayerControls.Movement(CameraMode.Bird,(float)Math.PI/2,1,0);Check(bird.X==0&&bird.Y==-1,"bird's-eye controls remain aligned with the map",log);
     Check(Math.Abs(PlayerControls.Wrap((float)(Math.PI*6+.5))-.5)<.001f,"repeated turns wrap without limiting rotation",log);
     log.AppendLine("INFO shortcut lower bound="+CityMap.MinimumSeconds.ToString("0.00")+" s; marked route="+(CityMap.TotalDistance/Game.MoveSpeed).ToString("0.00")+" s");
+    foreach(Street road in new Street[]{CityMap.Streets[0],CityMap.Streets[1],CityMap.Streets[3],CityMap.Streets[180],CityMap.Streets[359]}){
+     foreach(int side in new int[]{-1,1}){
+      float edge=side<0?road.CrosswalkLeft:road.CrosswalkRight;
+      foreach(float outside in new float[]{0,Game.BodyHalfWidth-.25f,Game.BodyHalfWidth}){
+       game=CrosswalkCase(road,edge+side*outside,road.Top+16);game.Update(.001f,0,0);
+       Check(game.Result==Outcome.Playing,"half/sliver/contact overlap survives: "+road.Name+" side="+side+" offset="+outside,log);
+      }
+      game=CrosswalkCase(road,edge+side*(Game.BodyHalfWidth+.25f),road.Top+16);game.Update(.001f,0,0);
+      Check(game.Result==Outcome.Lost&&game.Loss==LossReason.OutsideCrosswalk,"fully outside zebra ends attempt: "+road.Name+" side="+side,log);
+     }
+     game=CrosswalkCase(road,road.CrosswalkRight+50,road.Top);game.Update(.001f,0,0);Check(game.Result==Outcome.Playing,"far sidewalk remains free: "+road.Name,log);
+     game=CrosswalkCase(road,road.CrosswalkRight+50,road.Top+.25f);game.Update(.001f,0,0);Check(game.Loss==LossReason.OutsideCrosswalk,"far curb with feet still on roadway is checked: "+road.Name,log);
+     game=CrosswalkCase(road,road.CrosswalkRight+50,road.Bottom+Game.FootDepth);game.Update(.001f,0,0);Check(game.Result==Outcome.Playing,"near sidewalk boundary remains free: "+road.Name,log);
+     game=CrosswalkCase(road,road.CrosswalkRight+50,road.Bottom+Game.FootDepth-.25f);game.Update(.001f,0,0);Check(game.Loss==LossReason.OutsideCrosswalk,"side entry with feet still on roadway is rejected: "+road.Name,log);
+    }
+    game=CrosswalkCase(CityMap.Streets[0],CityMap.Streets[0].CrosswalkRight+6,CityMap.Streets[0].Top+16);game.Update(.5f,1,0);
+    Check(game.Loss==LossReason.OutsideCrosswalk&&game.Time<.1f,"long frame detects crossing side boundary at first substep",log);
+    game=CrosswalkCase(CityMap.Streets[0],CityMap.Streets[0].CrosswalkRight+Game.BodyHalfWidth+1,CityMap.Streets[0].Top+16);game.Cars.Add(new Car(game.X,game.Y,0,29,0));game.Update(.001f,0,0);
+    Check(game.Loss==LossReason.OutsideCrosswalk,"simultaneous car contact cannot suppress a full-exit restart",log);
     foreach(Street street in CityMap.Streets){
      game=new Game(1,42);game.Cars.Clear();game.X=street.CrossX;game.Y=street.Top+16;game.Cars.Add(new Car(game.X,game.Y,0,29,0));game.Update(.02f,0,0);
-     Check(game.Result==Outcome.Lost,"collision on "+street.Name,log);
+     Check(game.Result==Outcome.Lost&&game.Loss==LossReason.Car,"collision on "+street.Name,log);
     }
     float time=game.Time;game.Update(1,0,-1);Check(game.Time==time,"finished game is frozen",log);
     game=new Game(1,1);game.Cars.Clear();game.Y=CityMap.Streets[0].Top+16;game.Cars.Add(new Car(100,game.Y,3000,29,0));game.Update(.1f,0,0);Check(game.Result==Outcome.Lost,"fast car swept collision",log);
@@ -70,8 +92,9 @@ namespace QuietCrossing {
     game=new Game(2,123);for(int i=0;i<3000;i++)game.Update(.02f,0,0);
     Check(game.Cars.Count>0&&game.Cars.Count<600,"nearby streets maintain bounded traffic over 60 seconds",log);
     foreach(Street street in CityMap.Streets){game=new Game(1,43);game.X=street.CrossX;game.Y=street.Bottom+25;game.Update(.01f,0,0);Check(game.Cars.Exists(c=>c.Y>street.Top&&c.Y<street.Bottom&&c.Speed>0)&&game.Cars.Exists(c=>c.Y>street.Top&&c.Y<street.Bottom&&c.Speed<0),"traffic activates in both directions: "+street.Name,log);}
-    game=new Game(1,44);for(int i=0;i<200;i++){game.X=220;game.Y=CityMap.Streets[30].Top+16+(i%2==0?899:901);game.Update(.01f,0,0);}
-    Check(game.Cars.Count<600,"crossing activation boundary repeatedly cannot duplicate traffic",log);
+    game=CrosswalkCase(CityMap.Streets[26],CityMap.Streets[26].CrossX,CityMap.Streets[26].Bottom+20);
+    for(int i=0;i<200;i++){game.X=CityMap.Streets[26].CrossX;game.Y=CityMap.Streets[30].Top+16+(i%2==0?899:901);game.Update(.01f,0,0);}
+    Check(game.Result==Outcome.Playing&&game.Cars.Count<600,"crossing activation boundary repeatedly cannot duplicate traffic",log);
     var other=new Game(2,456);Check(other.Cars[0].X!=new Game(2,123).Cars[0].X,"new seeds change traffic",log);
     var easy=new Game(0,42);var hard=new Game(2,42);Check(Math.Abs(hard.Cars[0].Speed)>Math.Abs(easy.Cars[0].Speed),"difficulty changes speed",log);
     game=new Game(1,12);WalkRoute(game);Check(game.Result==Outcome.Won&&game.CompletedRoads==CityMap.Streets.Length&&game.Time>=1200,"entire marked walking route is traversable without teleporting",log);

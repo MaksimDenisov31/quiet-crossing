@@ -30,6 +30,7 @@ namespace QuietCrossing {
   SoundPlayer soundPlayer; MemoryStream soundStream;
   PointF mouse=new PointF(-1,-1); int focus=-1; double previous; float ambient;
   Rectangle viewport; bool preview; string notice="";
+  double crosswalkNoticeUntil;
   readonly Color ink=ColorTranslator.FromHtml("#283c39"), cream=ColorTranslator.FromHtml("#f4f1df"),mint=ColorTranslator.FromHtml("#c4dfac");
   readonly Color[] carColors={Color.FromArgb(218,135,110),Color.FromArgb(228,191,107),Color.FromArgb(132,170,181),Color.FromArgb(193,183,209),Color.FromArgb(208,218,190)};
   public Window(bool previewMode) : this(previewMode,true) { }
@@ -47,7 +48,7 @@ namespace QuietCrossing {
    if(preview && capture) Shown+=delegate {CapturePreviews();Close();};
   }
   void Save() {if(!preview && !settings.Save(Settings.PathName)) notice="Не удалось сохранить настройки.";}
-  void StartGame() {EndMouseTurn();game=new Game(settings.Difficulty,Environment.TickCount);yaw=0;keys.Clear();page="play";focus=-1;}
+  void StartGame() {EndMouseTurn();game=new Game(settings.Difficulty,Environment.TickCount);yaw=0;crosswalkNoticeUntil=0;keys.Clear();page="play";focus=-1;}
   void ChooseCamera(CameraMode mode) {settings.Camera=mode;Save();StartGame();}
   void CycleCamera() {EndMouseTurn();settings.Camera=(CameraMode)(((int)settings.Camera+1)%3);Save();}
   void Go(string value) {EndMouseTurn();page=value;keys.Clear();focus=value=="camera"?(settings.Camera==CameraMode.FirstPerson?0:settings.Camera==CameraMode.ThirdPerson?1:2):-1;Invalidate();}
@@ -60,9 +61,12 @@ namespace QuietCrossing {
     float strafe=(keys.Contains(Keys.D)||!perspective&&keys.Contains(Keys.Right)?1:0)-(keys.Contains(Keys.A)||!perspective&&keys.Contains(Keys.Left)?1:0);
     MapPoint movement=PlayerControls.Movement(settings.Camera,yaw,forward,strafe);game.Update(dt,movement.X,movement.Y);
     if(game.Result!=Outcome.Playing) {
-     Go(game.Result==Outcome.Lost?"lost":"won");
-     if(game.Result==Outcome.Won) {settings.Wins++;Save();}
-     Tone(game.Result==Outcome.Won?660:150);
+     if(game.Loss==LossReason.OutsideCrosswalk){StartGame();crosswalkNoticeUntil=now+2.5;Tone(150);}
+     else {
+      Go(game.Result==Outcome.Lost?"lost":"won");
+      if(game.Result==Outcome.Won) {settings.Wins++;Save();}
+      Tone(game.Result==Outcome.Won?660:150);
+     }
     }
    } else if(page=="menu") {foreach(Car c in game.Cars) {c.X+=c.Speed*dt;if(c.X>CityMap.Width+50)c.X=-50;if(c.X< -50)c.X=CityMap.Width+50;}}
    Invalidate();
@@ -139,6 +143,7 @@ namespace QuietCrossing {
     Button(g,"Пауза  II",376,13,91,delegate{Go("pause");});
     Rect(g,ink,12,293,456,19);Center(g,settings.Camera==CameraMode.Bird?"WASD / стрелки — идти     M — карта     V — вид     Esc — пауза":"WASD — идти    Q/E, ←/→ — поворот    ПКМ + мышь — взгляд",296,9,cream);
     DrawRouteHud(g);
+    if(watch.Elapsed.TotalSeconds<crosswalkNoticeUntil){Rect(g,ink,45,273,338,16);TextAt(g,"Вышел за зебру — новая попытка с точки А",54,276,9,cream,true);}
     return;
    }
    using(var b=new SolidBrush(Color.FromArgb(172,25,43,39)))g.FillRectangle(b,0,0,480,320);
@@ -150,7 +155,7 @@ namespace QuietCrossing {
     Button(g,"Настройки",151,201,178,delegate{returnPage="menu";Go("settings");});
     Button(g,"Выход",151,235,178,Close);
     Center(g,"WASD / стрелки • Esc — пауза",282,9,mint);
-    TextAt(g,"v1.4.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
+    TextAt(g,"v1.5.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
    } else if(page=="camera") {
     Center(g,"ВЫБЕРИ ВИД",35,24,cream,true);
     Center(g,"360 переходов · короткие тротуары · свободный поворот",72,10,mint);
@@ -192,10 +197,11 @@ namespace QuietCrossing {
   void CapturePreviews() {
    Directory.CreateDirectory("docs");
    settings=new Settings{Sound=false};focus=-1;mouse=new PointF(-1,-1);keys.Clear();
-   foreach(string p in new string[]{"menu","camera","play","settings","pause","lost","won","map","map-local","city-middle","first-person","third-person","look-left","first-person-road","third-person-road","first-person-right","third-person-right"}) {
+   foreach(string p in new string[]{"menu","camera","play","settings","pause","lost","won","map","map-local","city-middle","first-person","third-person","look-left","first-person-road","third-person-road","first-person-right","third-person-right","crosswalk-restart"}) {
     bool firstView=p.StartsWith("first-person")||p=="look-left",thirdView=p.StartsWith("third-person");
     settings.Camera=firstView?CameraMode.FirstPerson:thirdView?CameraMode.ThirdPerson:CameraMode.Bird;
-    page=firstView||thirdView||p=="city-middle"?"play":p;
+    page=firstView||thirdView||p=="city-middle"||p=="crosswalk-restart"?"play":p;
+    crosswalkNoticeUntil=p=="crosswalk-restart"?watch.Elapsed.TotalSeconds+2.5:0;
     mapLocal=p=="map-local";if(mapLocal)page="map";
     yaw=p=="look-left"?-1.25f:0;
     game=new Game(1,1234);if(p.EndsWith("-road"))game.Y=CityMap.Streets[0].Bottom-20;
@@ -291,7 +297,17 @@ namespace QuietCrossing {
      NativeTestInput.Post(w.Handle,0x200,2,300|(200<<16));Application.DoEvents();
      if(w.yaw==nativeMouse)throw new Exception("Native mouse turn");NativeTestInput.Post(w.Handle,0x205,0,300|(200<<16));Application.DoEvents();
      if(w.mouseTurning||w.Capture)throw new Exception("Native mouse release");log.AppendLine("PASS real WinForms message pipeline: E/right key down and up, RMB drag and release");
-     w.CapturePreviews();w.Close();log.AppendLine("PASS seventeen rendered screen previews");
+     foreach(CameraMode mode in Enum.GetValues(typeof(CameraMode))){
+      w.Go("menu");click("Играть  →");click(CameraName(mode));Street first=CityMap.Streets[0];
+      Game overlap=Tests.CrosswalkCase(first,first.CrosswalkRight+Game.BodyHalfWidth-.25f,first.Top+16);w.game=overlap;w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
+      if(w.game!=overlap||w.page!="play")throw new Exception("Partial crosswalk overlap must not restart: "+mode);
+      Tests.VisitRoads(w.game,2);Game old=w.game;int beforeWins=w.settings.Wins;int difficulty=w.settings.Difficulty;Street road=CityMap.Streets[2];
+      w.game.Cars.Clear();w.game.X=road.CrosswalkRight+Game.BodyHalfWidth+.5f;w.game.Y=road.Top+16;w.yaw=.6f;w.OnKeyDown(new KeyEventArgs(Keys.W));w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
+      if(w.game==old||w.page!="play"||w.game.Result!=Outcome.Playing||w.game.CompletedRoads!=0||w.game.Time!=0||w.game.X!=CityMap.Start.X||w.game.Y!=CityMap.Start.Y||w.yaw!=0||w.keys.Count!=0||w.mouseTurning||w.Capture)throw new Exception("Full crosswalk exit must restart at A: "+mode);
+      if(w.settings.Camera!=mode||w.settings.Difficulty!=difficulty||w.settings.Wins!=beforeWins||w.crosswalkNoticeUntil<=w.watch.Elapsed.TotalSeconds)throw new Exception("Crosswalk restart must preserve settings and explain cause: "+mode);render();
+     }
+     log.AppendLine("PASS all three cameras: partial zebra overlap continues, full exit restarts entire route at A, settings preserved and reason shown");
+     w.CapturePreviews();w.Close();log.AppendLine("PASS eighteen rendered screen previews");
     }
     File.WriteAllText("ui-test-results.txt",log.ToString());return 0;
    } catch(Exception ex) {File.WriteAllText("ui-test-results.txt",log+"FAIL "+ex);return 1;}

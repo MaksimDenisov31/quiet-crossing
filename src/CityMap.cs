@@ -6,6 +6,8 @@ namespace QuietCrossing {
  public sealed class Street {
   public readonly float Top,CrossX,Pace;public readonly int Lanes,District;public readonly string Name;
   public float Bottom{get{return Top+Lanes*32;}}
+  public float CrosswalkLeft{get{return CrossX-CityMap.CrosswalkHalfWidth;}}
+  public float CrosswalkRight{get{return CrossX+CityMap.CrosswalkHalfWidth;}}
   public MapPoint Exit{get{return new MapPoint(CrossX,Top-35);}}
   public Street(string name,float top,int lanes,float crossX,float pace,int district){Name=name;Top=top;Lanes=lanes;CrossX=crossX;Pace=pace;District=district;}
  }
@@ -15,6 +17,7 @@ namespace QuietCrossing {
  }
  public static class CityMap {
   public const float Width=640,Height=80956,StreetSpacing=224,FirstStreetTop=80716;
+  public const float CrosswalkHalfWidth=24;
   public const int StreetsPerDistrict=30;
   public static readonly string[] Districts={"Стартовый квартал","Старый город","Солнечный район","Рыночный квартал","Городские сады","Университет","Мастерские","Новый город","Сосновый парк","Район каналов","Прибрежный район","Набережная"};
   public static readonly MapPoint Start=new MapPoint(220,80876),Finish=new MapPoint(260,200);

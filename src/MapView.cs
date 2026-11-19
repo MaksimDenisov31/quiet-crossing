@@ -28,7 +28,7 @@ namespace QuietCrossing {
     Rect(g,Color.FromArgb(65,78,80),0,road.Top,CityMap.Width,road.Bottom-road.Top);
     for(int lane=1;lane<road.Lanes;lane++)for(int x=0;x<CityMap.Width;x+=29)if(x<road.CrossX-36||x>road.CrossX+30)
      Rect(g,lane==road.Lanes/2?Color.FromArgb(203,181,119):Color.FromArgb(122,135,130),x,road.Top+lane*32,15,1);
-    for(float y=road.Top+5;y<road.Bottom-4;y+=16)Rect(g,cream,road.CrossX-24,y,48,9);
+    for(float y=road.Top+5;y<road.Bottom-4;y+=16)Rect(g,cream,road.CrosswalkLeft,y,CityMap.CrosswalkHalfWidth*2,9);
     foreach(float y in new float[]{road.Top-12,road.Bottom+8}){
      Rect(g,Color.FromArgb(216,196,128),road.CrossX-22,y,44,6);
      for(int x=-20;x<22;x+=6)Rect(g,Color.FromArgb(170,153,101),road.CrossX+x,y+1,2,2);
@@ -85,7 +85,7 @@ namespace QuietCrossing {
    foreach(Street road in CityMap.Streets){
     if(road.Bottom<viewTop||road.Top>viewTop+viewHeight)continue;
     Rect(g,Color.FromArgb(65,78,80),ox,oy+(road.Top-viewTop)*scale,width,(road.Bottom-road.Top)*scale);
-    Rect(g,cream,ox+(road.CrossX-24)*scale,oy+(road.Top-viewTop)*scale,48*scale,(road.Bottom-road.Top)*scale);
+    Rect(g,cream,ox+road.CrosswalkLeft*scale,oy+(road.Top-viewTop)*scale,CityMap.CrosswalkHalfWidth*2*scale,(road.Bottom-road.Top)*scale);
    }
    foreach(House h in CityMap.Houses)if(h.Y+h.Depth>=viewTop&&h.Y<=viewTop+viewHeight)Rect(g,Color.FromArgb(98,129,103),ox+h.X*scale,oy+(h.Y-viewTop)*scale,h.Width*scale,h.Depth*scale);
    using(var pen=new Pen(Color.FromArgb(234,223,170),detailed?2:1))for(int i=1;i<CityMap.Path.Length;i++){
