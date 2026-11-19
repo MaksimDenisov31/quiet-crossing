@@ -21,7 +21,7 @@ namespace QuietCrossing {
   public RectangleF Rect; public Action Action; public string Label;
   public Hit(RectangleF r,string label,Action a) {Rect=r;Label=label;Action=a;}
  }
- public sealed class Window : Form {
+ public sealed partial class Window : Form {
   Settings settings; Game game; string page="menu",returnPage="menu";
   readonly HashSet<Keys> keys=new HashSet<Keys>();
   readonly List<Hit> hits=new List<Hit>();
@@ -47,11 +47,15 @@ namespace QuietCrossing {
    if(preview && capture) Shown+=delegate {CapturePreviews();Close();};
   }
   void Save() {if(!preview && !settings.Save(Settings.PathName)) notice="Не удалось сохранить настройки.";}
-  void StartGame() {game=new Game(settings.Difficulty,Environment.TickCount);keys.Clear();page="play";focus=-1;}
-  void Go(string value) {page=value;keys.Clear();focus=-1;Invalidate();}
+  void StartGame() {game=new Game(settings.Difficulty,Environment.TickCount);lookAngle=0;keys.Clear();page="play";focus=-1;}
+  void ChooseCamera(CameraMode mode) {settings.Camera=mode;Save();StartGame();}
+  void CycleCamera() {settings.Camera=(CameraMode)(((int)settings.Camera+1)%3);lookAngle=0;Save();}
+  void Go(string value) {page=value;keys.Clear();focus=value=="camera"?(settings.Camera==CameraMode.FirstPerson?0:settings.Camera==CameraMode.ThirdPerson?1:2):-1;Invalidate();}
   void Tick(object sender,EventArgs e) {
    double now=watch.Elapsed.TotalSeconds;float dt=(float)Math.Min(0.05,now-previous);previous=now;ambient+=dt;
    if(page=="play") {
+    float target=(keys.Contains(Keys.E)?1.25f:0)-(keys.Contains(Keys.Q)?1.25f:0);
+    lookAngle+=(target-lookAngle)*Math.Min(1,dt*12);
     game.Update(dt,(Down(Keys.Right,Keys.D)?1:0)-(Down(Keys.Left,Keys.A)?1:0),(Down(Keys.Down,Keys.S)?1:0)-(Down(Keys.Up,Keys.W)?1:0));
     if(game.Result!=Outcome.Playing) {
      Go(game.Result==Outcome.Lost?"lost":"won");
@@ -77,7 +81,7 @@ namespace QuietCrossing {
    } catch(Exception ex) {if(!(ex is InvalidOperationException || ex is System.ComponentModel.Win32Exception || ex is FileNotFoundException))throw;}
   }
   protected override void OnKeyDown(KeyEventArgs e) {
-   base.OnKeyDown(e);keys.Add(e.KeyCode);
+   base.OnKeyDown(e);bool firstPress=keys.Add(e.KeyCode);
    if(e.KeyCode==Keys.Escape || e.KeyCode==Keys.P) {
     if(page=="play")Go("pause");else if(page=="pause")Go("play");else if(page=="settings")Go(returnPage);else if(page!="menu")Go("menu");
    } else if(page!="play" && (e.KeyCode==Keys.Tab || e.KeyCode==Keys.Down || e.KeyCode==Keys.Up)) {
@@ -85,6 +89,7 @@ namespace QuietCrossing {
    } else if(page!="play" && (e.KeyCode==Keys.Enter || e.KeyCode==Keys.Space)) {
     if(hits.Count>0)hits[Math.Max(0,Math.Min(focus,hits.Count-1))].Action();
    } else if(e.KeyCode==Keys.R && (page=="lost"||page=="won"))StartGame();
+   else if(firstPress && e.KeyCode==Keys.V && (page=="play"||page=="pause"))CycleCamera();
    e.Handled=true;e.SuppressKeyPress=true;Invalidate();
   }
   protected override void OnKeyUp(KeyEventArgs e) {keys.Remove(e.KeyCode);base.OnKeyUp(e);}
@@ -145,11 +150,14 @@ namespace QuietCrossing {
    if(page=="play") {TextAt(g,"ФИНИШ",221,46,8,ink,true);Rect(g,ink,238,60,4,6);Rect(g,ink,235,60,10,2);}
   }
   void Draw(Graphics g) {
-   g.SmoothingMode=SmoothingMode.None;g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;hits.Clear();DrawScene(g);
+   g.SmoothingMode=SmoothingMode.None;g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;hits.Clear();
+   if(settings.Camera!=CameraMode.Bird && page!="menu" && page!="camera") DrawPerspective(g);else DrawScene(g);
    if(page=="play") {
     Rect(g,ink,12,12,132,28);TextAt(g,"ТИХИЙ ПЕРЕХОД",21,19,10,cream,true);
+    Button(g,CameraName(settings.Camera)+"  [V]",153,13,214,CycleCamera);
     Button(g,"Пауза  II",376,13,91,delegate{Go("pause");});
-    Rect(g,ink,120,293,240,19);Center(g,"WASD / стрелки — идти     Esc — пауза",296,9,cream);
+    Rect(g,ink,30,293,420,19);Center(g,settings.Camera==CameraMode.Bird?"WASD / стрелки — идти     V — сменить вид     Esc — пауза":"WASD — идти     Q / E — оглядеться     V — вид     Esc — пауза",296,9,cream);
+    if(settings.Camera!=CameraMode.Bird){Rect(g,ink,12,48,116,17);TextAt(g,"До финиша: "+Math.Max(0,(int)Math.Ceiling((game.Y-77)/10))+" м",18,51,8,cream);}
     return;
    }
    using(var b=new SolidBrush(Color.FromArgb(172,25,43,39)))g.FillRectangle(b,0,0,480,320);
@@ -157,18 +165,30 @@ namespace QuietCrossing {
     Center(g,"МАЛЕНЬКАЯ ПИКСЕЛЬНАЯ ИГРА",38,8,mint,true);
     Center(g,"ТИХИЙ",56,35,cream,true);Center(g,"ПЕРЕХОД",89,35,cream,true);
     Center(g,"Одна дорога. Выбери свой момент.",137,11,Color.FromArgb(202,216,191));
-    Button(g,"Играть  →",151,167,178,StartGame,true);
+    Button(g,"Играть  →",151,167,178,delegate{Go("camera");},true);
     Button(g,"Настройки",151,201,178,delegate{returnPage="menu";Go("settings");});
     Button(g,"Выход",151,235,178,Close);
     Center(g,"WASD / стрелки • Esc — пауза",282,9,mint);
-    TextAt(g,"v1.0.0",12,303,7,mint);TextAt(g,"Переходов: "+settings.Wins,379,303,8,mint);
+    TextAt(g,"v1.1.0",12,303,7,mint);TextAt(g,"Переходов: "+settings.Wins,379,303,8,mint);
+   } else if(page=="camera") {
+    Center(g,"ВЫБЕРИ ВИД",35,24,cream,true);
+    Center(g,"Одна дорога — три точки зрения",72,11,mint);
+    Button(g,"От первого лица",105,106,270,delegate{ChooseCamera(CameraMode.FirstPerson);},settings.Camera==CameraMode.FirstPerson);
+    Center(g,"Посмотри на дорогу глазами персонажа",137,9,mint);
+    Button(g,"От третьего лица",105,163,270,delegate{ChooseCamera(CameraMode.ThirdPerson);},settings.Camera==CameraMode.ThirdPerson);
+    Center(g,"Камера следует за спиной персонажа",194,9,mint);
+    Button(g,"С высоты птичьего полёта",105,220,270,delegate{ChooseCamera(CameraMode.Bird);},settings.Camera==CameraMode.Bird);
+    Center(g,"Знакомый вид сверху — вся дорога перед тобой",251,9,mint);
+    Button(g,"Назад",175,281,130,delegate{Go("menu");});
    } else if(page=="settings") {
-    Center(g,"НАСТРОЙКИ",44,24,cream,true);Center(g,"Настрой свой ритм",78,10,mint);
-    TextAt(g,"Поток машин",84,115,10,cream,true);
+    Center(g,"НАСТРОЙКИ",23,24,cream,true);
+    TextAt(g,"Камера (можно менять во время игры)",63,65,10,cream,true);
+    for(int i=0;i<3;i++){CameraMode mode=(CameraMode)i;Button(g,CameraShort(mode),63+i*120,85,114,delegate{settings.Camera=mode;lookAngle=0;Save();},settings.Camera==mode);}
+    TextAt(g,"Поток машин",84,125,10,cream,true);
     string[] labels={"Спокойный","Обычный","Плотный"};
-    for(int i=0;i<3;i++){int d=i;Button(g,labels[i],84+i*106,137,100,delegate{settings.Difficulty=d;Save();},settings.Difficulty==i);}
-    Center(g,"Изменение сложности применяется к новой игре.",174,9,mint);
-    Button(g,"Звуки: "+(settings.Sound?"включены":"выключены"),121,200,238,delegate{settings.Sound=!settings.Sound;Save();if(settings.Sound)Tone(440);});
+    for(int i=0;i<3;i++){int d=i;Button(g,labels[i],84+i*106,145,100,delegate{settings.Difficulty=d;Save();},settings.Difficulty==i);}
+    Center(g,"Изменение сложности применяется к новой игре.",179,9,mint);
+    Button(g,"Звуки: "+(settings.Sound?"включены":"выключены"),121,205,238,delegate{settings.Sound=!settings.Sound;Save();if(settings.Sound)Tone(440);});
     Button(g,"Готово",151,244,178,delegate{Go(returnPage);},true);
     Center(g,notice,285,8,cream);
    } else {
@@ -190,8 +210,13 @@ namespace QuietCrossing {
   }
   void CapturePreviews() {
    Directory.CreateDirectory("docs");
-   foreach(string p in new string[]{"menu","play","settings","pause","lost","won"}) {
-    page=p;game=new Game(1,1234);if(p=="lost")game.Result=Outcome.Lost;if(p=="won"){game.Y=73;game.Result=Outcome.Won;}
+   settings=new Settings{Sound=false};focus=-1;mouse=new PointF(-1,-1);keys.Clear();
+   foreach(string p in new string[]{"menu","camera","play","settings","pause","lost","won","first-person","third-person","look-left","first-person-road","third-person-road"}) {
+    settings.Camera=p=="first-person"||p=="look-left"||p=="first-person-road"?CameraMode.FirstPerson:p=="third-person"||p=="third-person-road"?CameraMode.ThirdPerson:CameraMode.Bird;
+    page=p=="first-person"||p=="third-person"||p=="look-left"||p.EndsWith("-road")?"play":p;
+    lookAngle=p=="look-left"?-1.25f:0;
+    game=new Game(1,1234);if(p.EndsWith("-road"))game.Y=180;
+    if(p=="lost")game.Result=Outcome.Lost;if(p=="won"){game.Y=73;game.Result=Outcome.Won;}
     using(Graphics g=Graphics.FromImage(scene))Draw(g);
     using(var output=new Bitmap(960,640))using(Graphics g=Graphics.FromImage(output)){g.InterpolationMode=InterpolationMode.NearestNeighbor;g.PixelOffsetMode=PixelOffsetMode.Half;g.DrawImage(scene,0,0,960,640);output.Save("docs/"+p+".png",ImageFormat.Png);}
    }
@@ -213,7 +238,8 @@ namespace QuietCrossing {
      };
      click("Настройки");if(w.page!="settings")throw new Exception("Settings navigation");
      click("Плотный");if(w.settings.Difficulty!=2)throw new Exception("Difficulty control");
-     click("Готово");click("Играть  →");if(w.page!="play"||w.game.Difficulty!=2)throw new Exception("Start game");
+     click("Готово");click("Играть  →");if(w.page!="camera")throw new Exception("Camera selection screen");
+     click("С высоты птичьего полёта");if(w.page!="play"||w.game.Difficulty!=2||w.settings.Camera!=CameraMode.Bird)throw new Exception("Start game");
      float before=w.game.Y;w.OnKeyDown(new KeyEventArgs(Keys.W));w.previous=w.watch.Elapsed.TotalSeconds-0.05;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.W));
      if(w.game.Y>=before)throw new Exception("Movement input");log.AppendLine("PASS mouse menu, settings, difficulty, keyboard movement");
      w.OnKeyDown(new KeyEventArgs(Keys.Escape));float frozen=w.game.Time;
@@ -225,13 +251,35 @@ namespace QuietCrossing {
      if(w.page!="lost")throw new Exception("Collision screen");w.Refresh();click("Ещё раз  →");if(w.page!="play"||w.game.Y!=275)throw new Exception("Restart");
      w.game.Cars.Clear();w.game.Y=76;w.previous=w.watch.Elapsed.TotalSeconds-0.02;w.Tick(null,EventArgs.Empty);if(w.page!="won"||w.settings.Wins!=1)throw new Exception("Victory screen");
      w.Refresh();click("Главное меню");if(w.page!="menu")throw new Exception("Menu return");
-     w.OnKeyDown(new KeyEventArgs(Keys.Tab));w.OnKeyDown(new KeyEventArgs(Keys.Enter));if(w.page!="play")throw new Exception("Keyboard menu");
+     w.OnKeyDown(new KeyEventArgs(Keys.Tab));w.OnKeyDown(new KeyEventArgs(Keys.Enter));if(w.page!="camera")throw new Exception("Keyboard menu");render();
+     w.OnKeyDown(new KeyEventArgs(Keys.Enter));if(w.page!="play")throw new Exception("Keyboard camera selection");
      log.AppendLine("PASS collision screen, retry, victory counter, menu, keyboard activation");
-     w.CapturePreviews();w.Close();log.AppendLine("PASS six rendered screen previews");
+     foreach(CameraMode mode in Enum.GetValues(typeof(CameraMode))) {
+      w.Go("menu");click("Играть  →");click(CameraName(mode));
+      if(w.settings.Camera!=mode||w.page!="play")throw new Exception("Camera mode start "+mode);
+      render();float y=w.game.Y;Game sameGame=w.game;
+      w.OnKeyDown(new KeyEventArgs(Keys.V));render();
+      if(w.settings.Camera==mode||w.game!=sameGame||w.game.Y!=y||w.game.Time!=0)throw new Exception("Camera cycle must not reset simulation");
+      w.settings.Camera=mode;
+      w.OnKeyDown(new KeyEventArgs(Keys.Q));w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.Q));
+      if(w.lookAngle>=0)throw new Exception("Look left");render();
+      w.OnKeyDown(new KeyEventArgs(Keys.E));w.previous=w.watch.Elapsed.TotalSeconds-.05;w.Tick(null,EventArgs.Empty);w.OnKeyUp(new KeyEventArgs(Keys.E));
+      if(w.lookAngle<=0)throw new Exception("Look right");render();
+      w.OnKeyDown(new KeyEventArgs(Keys.Escape));float elapsed=w.game.Time;
+      click("Настройки");click("Третье лицо");click("Готово");if(w.page!="pause"||w.game!=sameGame||w.game.Time!=elapsed||w.settings.Camera!=CameraMode.ThirdPerson)throw new Exception("Camera setting during pause");
+      click("Настройки");click(CameraShort(mode));click("Готово");
+      click("Продолжить");
+      w.game.Cars.Clear();w.game.Y=116;w.game.Cars.Add(new Car(w.game.X,116,1,29,0));w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
+      if(w.page!="lost")throw new Exception("Collision in camera "+mode);render();
+      click("Ещё раз  →");if(w.settings.Camera!=mode)throw new Exception("Retry preserves camera");w.game.Cars.Clear();w.game.Y=76;w.previous=w.watch.Elapsed.TotalSeconds-.02;w.Tick(null,EventArgs.Empty);
+      if(w.page!="won")throw new Exception("Victory in camera "+mode);render();
+     }
+     log.AppendLine("PASS all three camera choices, V preserves attempt, Q/E look, paused camera setting, collision and victory");
+     w.CapturePreviews();w.Close();log.AppendLine("PASS twelve rendered screen previews");
     }
     File.WriteAllText("ui-test-results.txt",log.ToString());return 0;
    } catch(Exception ex) {File.WriteAllText("ui-test-results.txt",log+"FAIL "+ex);return 1;}
   }
-  protected override void Dispose(bool disposing) {if(disposing){timer.Dispose();scene.Dispose();if(soundPlayer!=null)soundPlayer.Dispose();if(soundStream!=null)soundStream.Dispose();}base.Dispose(disposing);}
+  protected override void Dispose(bool disposing) {if(disposing){timer.Dispose();scene.Dispose();world.Dispose();if(soundPlayer!=null)soundPlayer.Dispose();if(soundStream!=null)soundStream.Dispose();}base.Dispose(disposing);}
  }
 }

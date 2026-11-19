@@ -30,12 +30,12 @@ if ($Release) {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release commit.' }
     $sha = $revision.Trim()
     $body = @{
-        tag_name='v1.0.0'; target_commitish=$sha; name='Тихий переход 1.0.0'; draft=$false; prerelease=$false
-        body="Первый рабочий выпуск.`n`n- Пиксельная дорога, зебра и четыре полосы случайного движения.`n- Меню, настройки, пауза, поражение, победа и быстрый повтор.`n- Три сложности, звуки и сохранение настроек и размера окна.`n- Управление: WASD / стрелки; Esc — пауза; R — новая попытка.`n`nWindows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
+        tag_name='v1.1.0'; target_commitish=$sha; name='Тихий переход 1.1.0 — три вида камеры'; draft=$false; prerelease=$false
+        body="Выбор вида перед началом игры: от первого лица, от третьего лица или с высоты птичьего полёта.`n`n- Объёмная пиксельная сцена с камерой на уровне глаз или за спиной персонажа.`n- V — сменить вид без перезапуска; удерживать Q/E — посмотреть налево/направо.`n- Выбранный вид сохраняется и меняется также в настройках во время паузы.`n- Прежний вид сверху, правила игры и настройки версии 1.0.0 сохранены.`n`nWASD / стрелки — идти; Esc — пауза; R — повтор. Windows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
     } | ConvertTo-Json
     $releaseInfo = Invoke-RestMethod -Method Post -Uri "$base/repos/$repo/releases" -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     $upload = $releaseInfo.upload_url -replace '\{.*$', ''
-    foreach ($name in @('QuietCrossing-Setup-1.0.0.exe','QuietCrossing-Portable-1.0.0.zip','SHA256SUMS.txt')) {
+    foreach ($name in @('QuietCrossing-Setup-1.1.0.exe','QuietCrossing-Portable-1.1.0.zip','SHA256SUMS.txt')) {
         $file = Join-Path $project "installer-output\$name"
         $asset = Invoke-RestMethod -Method Post -Uri ($upload + '?name=' + [Uri]::EscapeDataString($name)) -Headers $headers -ContentType 'application/octet-stream' -InFile $file
         Write-Output ($asset.name + ': ' + $asset.browser_download_url)

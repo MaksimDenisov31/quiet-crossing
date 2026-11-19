@@ -1,9 +1,17 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 
 namespace QuietCrossing {
  static class Tests {
+  static long Digest(Bitmap image) {
+   BitmapData data=image.LockBits(new Rectangle(0,0,image.Width,image.Height),ImageLockMode.ReadOnly,PixelFormat.Format32bppArgb);
+   int[] pixels=new int[image.Width*image.Height];try{Marshal.Copy(data.Scan0,pixels,0,pixels.Length);}finally{image.UnlockBits(data);}
+   long hash=17;unchecked{foreach(int pixel in pixels)hash=hash*31+pixel;}return hash;
+  }
   static void Check(bool condition,string name,StringBuilder log) {if(!condition)throw new Exception(name);log.AppendLine("PASS "+name);}
   public static int Run() {
    var log=new StringBuilder();string folder=Path.Combine(Path.GetTempPath(),"QuietCrossingTests-"+Guid.NewGuid().ToString("N"));
@@ -25,6 +33,26 @@ namespace QuietCrossing {
     var settings=new Settings{Sound=false,Difficulty=2,Width=1111,Height=777,Wins=3,Maximized=true};Check(settings.Save(path),"settings initial save",log);
     settings.Wins=4;Check(settings.Save(path),"settings atomic replacement",log);
     settings=Settings.Load(path);Check(!settings.Sound&&settings.Difficulty==2&&settings.Width==1111&&settings.Height==777&&settings.Wins==4&&settings.Maximized,"settings round trip",log);
+    string legacy=File.ReadAllText(path).Replace("  <Camera>Bird</Camera>","");File.WriteAllText(path,legacy);
+    settings=Settings.Load(path);Check(settings.Camera==CameraMode.Bird&&!settings.Sound&&settings.Wins==4&&settings.Width==1111,"v1.0 settings migrate without resetting user data",log);
+    foreach(CameraMode camera in Enum.GetValues(typeof(CameraMode))) {
+     settings.Camera=camera;settings.Save(path);Settings restored=Settings.Load(path);
+     Check(restored.Camera==camera&&restored.Wins==4&&restored.Width==1111,"saved camera restored: "+camera,log);
+    }
+    using(var renderer=new PixelWorld())using(var image=new Bitmap(480,320))using(Graphics g=Graphics.FromImage(image)) {
+     Color[] colors={Color.Coral,Color.Khaki,Color.LightBlue,Color.Thistle,Color.Beige};game=new Game(1,1234);
+     renderer.Render(g,game,CameraMode.FirstPerson,0,colors,false,false);long first=Digest(image);
+     renderer.Render(g,game,CameraMode.ThirdPerson,0,colors,false,false);Check(Digest(image)!=first,"first and third person have distinct projections",log);
+     renderer.Render(g,game,CameraMode.FirstPerson,-1.25f,colors,false,false);Check(Digest(image)!=first,"looking sideways changes the perspective",log);
+     game.Y=180;renderer.Render(g,game,CameraMode.FirstPerson,0,colors,true,false);Check(Digest(image)!=first,"camera follows movement across road",log);
+     game.Y=275;renderer.Render(g,game,CameraMode.FirstPerson,0,colors,false,false);Check(Digest(image)==first,"rendering is deterministic and does not advance simulation",log);
+     game.Cars.Clear();game.Cars.Add(new Car(game.X,game.Y-1,60,40,0));
+     foreach(CameraMode mode in new CameraMode[]{CameraMode.FirstPerson,CameraMode.ThirdPerson})
+      foreach(float y in new float[]{281,230,212,116,78})foreach(float angle in new float[]{-1.25f,0,1.25f}) {
+       game.Y=y;renderer.Render(g,game,mode,angle,colors,true,false);
+      }
+     Check(game.Time==0&&game.Result==Outcome.Playing,"near-plane clipping across crossing never changes game state",log);
+    }
     File.WriteAllText(path,"broken");Check(Settings.Load(path).Difficulty==1,"damaged settings recover defaults",log);
     Check(Settings.Load(Path.Combine(folder,"absent.xml")).Sound,"missing settings use defaults",log);
     File.Delete(path);Directory.Delete(folder);File.WriteAllText("test-results.txt",log.ToString());return 0;
