@@ -1,4 +1,4 @@
-#define AppVersion "1.10.1"
+#define AppVersion "1.11.0"
 [Setup]
 AppId=QuietCrossing.MaksimDenisov31
 AppName=пиксельный переход Игра
@@ -14,7 +14,7 @@ UninstallDisplayIcon={app}\пиксельный переход Игра.exe
 SetupIconFile=..\assets\app.ico
 OutputDir=..\installer-output
 OutputBaseFilename=PixelCrossing-Setup-{#AppVersion}
-VersionInfoVersion=1.10.1.0
+VersionInfoVersion=1.11.0.0
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

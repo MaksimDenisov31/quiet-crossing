@@ -17,6 +17,7 @@ namespace QuietCrossing {
    if(args.Length>0 && args[0]=="--pointer-test") return Window.RunPointerTest();
    if(args.Length>0 && args[0]=="--benchmark") return Tests.Benchmark();
    if(args.Length>0 && args[0]=="--display-test") return Window.RunDisplayTest();
+   if(args.Length>0 && args[0]=="--motion-test") return Window.RunMotionTest();
    Application.Run(new Window(args.Length>0 && args[0]=="--preview"));return 0;
   }
  }
@@ -113,7 +114,7 @@ namespace QuietCrossing {
   }
   protected override void OnKeyUp(KeyEventArgs e) {keys.Remove(e.KeyCode);base.OnKeyUp(e);}
   PointF Logical(Point p) {return new PointF((p.X-viewport.X)*480f/Math.Max(1,viewport.Width),(p.Y-viewport.Y)*320f/Math.Max(1,viewport.Height));}
-  protected override void OnMouseMove(MouseEventArgs e) {TurnMouse(e);if(mouseTurning)mouse=new PointF(-1,-1);else{mouse=Logical(e.Location);Cursor=hits.Exists(h=>h.Rect.Contains(mouse))?Cursors.Hand:Cursors.Default;}base.OnMouseMove(e);}
+  protected override void OnMouseMove(MouseEventArgs e) {if(!replayingMouse)TurnMouse(e);if(mouseTurning)mouse=new PointF(-1,-1);else{mouse=Logical(e.Location);Cursor=hits.Exists(h=>h.Rect.Contains(mouse))?Cursors.Hand:Cursors.Default;}base.OnMouseMove(e);}
   protected override void OnMouseLeave(EventArgs e) {mouse=new PointF(-1,-1);base.OnMouseLeave(e);}
   protected override void OnMouseDown(MouseEventArgs e) {base.OnMouseDown(e);if(e.Button!=MouseButtons.Left||mouseTurning)return;PointF p=Logical(e.Location);foreach(Hit h in hits.ToArray())if(h.Rect.Contains(p)){h.Action();return;}if(page=="play"&&Perspective&&mouseCursorFree){mouseCursorFree=false;BeginMouseLook();}}
   void Rect(Graphics g,Color c,float x,float y,float w,float h) {CoverCaptions(g,c,x,y,w,h);using(var b=new SolidBrush(c))g.FillRectangle(b,x,y,w,h);}
@@ -174,7 +175,7 @@ namespace QuietCrossing {
     Button(g,"Настройки",151,201,178,delegate{returnPage="menu";Go("settings");});
     Button(g,"Выход",151,235,178,Close);
     Center(g,"WASD / стрелки • Esc — пауза",282,9,mint);
-    TextAt(g,"v1.10.1",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
+    TextAt(g,"v1.11.0",12,303,7,mint);TextAt(g,"Побед: "+settings.Wins,398,303,8,mint);
    } else if(page=="camera") {
     Center(g,"ВЫБЕРИ ВИД",35,24,cream,true);
     Center(g,"360 переходов · короткие тротуары · свободный поворот",72,10,mint);
@@ -187,16 +188,18 @@ namespace QuietCrossing {
     Button(g,"Назад",175,281,130,delegate{Go("menu");});
    } else if(page=="settings") {
     Center(g,"НАСТРОЙКИ",23,24,cream,true);
-    TextAt(g,"Камера (можно менять во время игры)",63,65,10,cream,true);
-    for(int i=0;i<3;i++){CameraMode mode=(CameraMode)i;Button(g,CameraShort(mode),63+i*120,85,114,delegate{EndMouseTurn();settings.Camera=mode;Save();},settings.Camera==mode);}
-    TextAt(g,"Поток машин",84,125,10,cream,true);
+    TextAt(g,"Камера (можно менять во время игры)",63,54,10,cream,true);
+    for(int i=0;i<3;i++){CameraMode mode=(CameraMode)i;Button(g,CameraShort(mode),63+i*120,72,114,delegate{EndMouseTurn();settings.Camera=mode;Save();},settings.Camera==mode);}
+    TextAt(g,"Поток машин (для новой игры)",84,108,10,cream,true);
     string[] labels={"Спокойный","Обычный","Плотный"};
-    for(int i=0;i<3;i++){int d=i;Button(g,labels[i],84+i*106,145,100,delegate{settings.Difficulty=d;Save();},settings.Difficulty==i);}
-    Center(g,"Изменение сложности применяется к новой игре.",179,9,mint);
-    Button(g,"Полный экран: "+(fullscreen?"да":"нет")+"  [F11]",121,194,238,ToggleFullscreen);
-    Button(g,"Звуки: "+(settings.Sound?"включены":"выключены"),121,230,238,delegate{settings.Sound=!settings.Sound;Save();if(settings.Sound)Tone(440);});
-    Button(g,"Готово",151,268,178,delegate{Go(returnPage);},true);
-    Center(g,notice,304,8,cream);
+    for(int i=0;i<3;i++){int d=i;Button(g,labels[i],84+i*106,124,100,delegate{settings.Difficulty=d;Save();},settings.Difficulty==i);}
+    TextAt(g,"Чувствительность мыши",84,160,10,cream,true);
+    string[] speeds={"Низкая","Средняя","Высокая"};float[] gains={.55f,1,1.7f};
+    for(int i=0;i<3;i++){float gain=gains[i];Button(g,speeds[i],84+i*106,177,100,delegate{settings.MouseSensitivity=gain;Save();},Math.Abs(settings.MouseSensitivity-gain)<.01f);}
+    Button(g,"Полный экран: "+(fullscreen?"да":"нет")+"  [F11]",121,213,238,ToggleFullscreen);
+    Button(g,"Звуки: "+(settings.Sound?"включены":"выключены"),121,245,238,delegate{settings.Sound=!settings.Sound;Save();if(settings.Sound)Tone(440);});
+    Button(g,"Готово",151,279,178,delegate{Go(returnPage);},true);
+    Center(g,notice,310,8,cream);
    } else {
     bool lost=page=="lost",won=page=="won";
     Center(g,lost?"НЕ В ЭТОТ РАЗ":won?"ТЫ ДОШЁЛ ДО ТОЧКИ Б!":"ПАУЗА",68,22,cream,true);
@@ -256,6 +259,9 @@ namespace QuietCrossing {
       w.OnMouseDown(new MouseEventArgs(MouseButtons.Left,1,x,y,0));render();
      };
      click("Настройки");if(w.page!="settings")throw new Exception("Settings navigation");
+     click("Низкая");if(w.settings.MouseSensitivity!=.55f)throw new Exception("Low mouse sensitivity setting");
+     click("Высокая");if(w.settings.MouseSensitivity!=1.7f)throw new Exception("High mouse sensitivity setting");
+     click("Средняя");if(w.settings.MouseSensitivity!=1)throw new Exception("Normal mouse sensitivity setting");
      click("Плотный");if(w.settings.Difficulty!=2)throw new Exception("Difficulty control");
      click("Готово");click("Играть  →");if(w.page!="camera")throw new Exception("Camera selection screen");
      click("С высоты птичьего полёта");if(w.page!="play"||w.game.Difficulty!=2||w.settings.Camera!=CameraMode.Bird)throw new Exception("Start game");

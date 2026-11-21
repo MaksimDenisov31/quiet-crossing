@@ -4,6 +4,7 @@ test-results.txt
 ui-test-results.txt
 pointer-test-results.txt
 benchmark-results.txt
+motion-test-results.txt
 display-test-results.txt
 *.tmp
 *.log

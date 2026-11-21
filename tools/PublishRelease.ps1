@@ -30,12 +30,12 @@ if ($Release) {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release commit.' }
     $sha = $revision.Trim()
     $body = @{
-        tag_name='v1.10.1'; target_commitish=$sha; name='пиксельный переход Игра 1.10.1 — новое имя игры'; draft=$false; prerelease=$false
-        body="Игра переименована в «пиксельный переход Игра».`n`n- Новое имя папки проекта и EXE: пиксельный переход Игра.exe.`n- Обновлены окно, меню, свойства файла, ярлыки, установщик и сборка.`n- Сохранены прежние настройки пользователя, история репозитория, все игровые функции и автоматический FPS по частоте монитора.`n`nWindows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
+        tag_name='v1.11.0'; target_commitish=$sha; name='пиксельный переход Игра 1.11.0 — управление мышью в объёмных видах'; draft=$false; prerelease=$false
+        body="Обновлено управление мышью в режимах от первого и третьего лица.`n`n- Накопившийся Raw Input считывается пакетами, в том числе перед кадром; обычные дублирующие события отключены во время захвата.`n- Убрано постоянное перецентрирование для абсолютного ввода; первый пакет не поворачивает камеру.`n- Поворот менее резкий, добавлены три сохраняемых уровня чувствительности мыши.`n- При паузе и освобождении курсора накопленный ввод очищается.`n- Добавлен стресс-тест поворотов с синтетическим потоком 1000/8000 Гц и измерением интервалов кадров.`n- Вид сверху, автоматический FPS по монитору, сглаженный текст, транспорт, светофоры и контрольные точки сохранены.`n`nWindows 10/11, .NET Framework 4.8+. Setup — установщик, Portable.zip — переносимая версия."
     } | ConvertTo-Json
     $releaseInfo = Invoke-RestMethod -Method Post -Uri "$base/repos/$repo/releases" -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     $upload = $releaseInfo.upload_url -replace '\{.*$', ''
-    foreach ($name in @('PixelCrossing-Setup-1.10.1.exe','PixelCrossing-Portable-1.10.1.zip','SHA256SUMS.txt')) {
+    foreach ($name in @('PixelCrossing-Setup-1.11.0.exe','PixelCrossing-Portable-1.11.0.zip','SHA256SUMS.txt')) {
         $file = Join-Path $project "installer-output\$name"
         $asset = Invoke-RestMethod -Method Post -Uri ($upload + '?name=' + [Uri]::EscapeDataString($name)) -Headers $headers -ContentType 'application/octet-stream' -InFile $file
         Write-Output ($asset.name + ': ' + $asset.browser_download_url)

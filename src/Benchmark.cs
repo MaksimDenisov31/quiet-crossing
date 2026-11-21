@@ -18,6 +18,14 @@ namespace QuietCrossing {
      log.AppendLine(mode+" renderer ms/frame="+(clock.Elapsed.TotalMilliseconds/frames).ToString("0.00"));
      clock.Restart();for(int i=0;i<600;i++){game.Cars.Clear();game.Update(1f/60,0,0);}
      log.AppendLine("simulation ms/update="+(clock.Elapsed.TotalMilliseconds/600).ToString("0.000"));
+     double[] timings=new double[360];int worst=0;
+     for(int i=0;i<timings.Length;i++){
+      float angle=i*(float)Math.PI*2/timings.Length,pitch=(float)Math.Sin(i*.045)*.55f;
+      clock.Restart();renderer.Render(g,game,mode,angle,colors,false,false,0,pitch);timings[i]=clock.Elapsed.TotalMilliseconds;
+      if(timings[i]>timings[worst])worst=i;
+     }
+     double maximum=timings[worst];Array.Sort(timings);
+     log.AppendLine("rotation renderer ms median/p95/max="+timings[180].ToString("0.00")+" / "+timings[342].ToString("0.00")+" / "+maximum.ToString("0.00")+" worst angle="+(worst*360.0/360).ToString("0"));
     }
    }
    File.WriteAllText("benchmark-results.txt",log.ToString());return 0;

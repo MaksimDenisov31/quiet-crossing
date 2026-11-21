@@ -41,6 +41,7 @@ namespace QuietCrossing {
   }
   void RefreshMonitor(){
    Screen display=Screen.FromControl(this);if(fullscreen&&Bounds!=display.Bounds)Bounds=display.Bounds;
+   if(mouseTurning){rawPrimaryBounds=Screen.PrimaryScreen.Bounds;rawVirtualBounds=SystemInformation.VirtualScreen;}
    monitorDevice=display.DeviceName;targetFps=monitorRateReader(monitorDevice);
    if(timer!=null)timer.Rate=targetFps;
    displayDirty=false;nextMonitorCheck=watch.Elapsed.TotalSeconds+1;
@@ -48,7 +49,7 @@ namespace QuietCrossing {
   bool HandleFrameMessage(ref Message message){
    if(message.Msg!=FrameMessage)return false;
    double start=watch.Elapsed.TotalSeconds;
-   try{if(timer!=null&&timer.Running&&!IsDisposed){Tick(this,EventArgs.Empty);Update();frameWork+=watch.Elapsed.TotalSeconds-start;presentedFrames++;}}
+   try{if(timer!=null&&timer.Running&&!IsDisposed){DrainMouseQueue();FlushMouseMotion();Tick(this,EventArgs.Empty);Update();frameWork+=watch.Elapsed.TotalSeconds-start;presentedFrames++;}}
    finally{if(timer!=null)timer.Presented();}
    message.Result=IntPtr.Zero;return true;
   }

@@ -102,10 +102,14 @@ namespace QuietCrossing {
     TrafficChecks(log);
     CheckpointChecks(log);
     FrameChecks(log);
+    MouseChecks(log);
     Directory.CreateDirectory(folder);string path=Path.Combine(folder,"settings.xml");
-    var settings=new Settings{Sound=false,Difficulty=2,Width=1111,Height=777,Wins=3,Maximized=true,Fullscreen=false};Check(settings.Save(path),"settings initial save",log);
+    var settings=new Settings{Sound=false,Difficulty=2,Width=1111,Height=777,Wins=3,Maximized=true,Fullscreen=false,MouseSensitivity=1.7f};Check(settings.Save(path),"settings initial save",log);
     settings.Wins=4;Check(settings.Save(path),"settings atomic replacement",log);
     settings=Settings.Load(path);Check(!settings.Sound&&settings.Difficulty==2&&settings.Width==1111&&settings.Height==777&&settings.Wins==4&&settings.Maximized,"settings round trip",log);
+    Check(settings.MouseSensitivity==1.7f,"mouse sensitivity preference survives relaunch",log);
+    File.WriteAllText(path,File.ReadAllText(path).Replace("<MouseSensitivity>1.7</MouseSensitivity>",""));
+    Check(Settings.Load(path).MouseSensitivity==1&&Settings.Load(path).Wins==4,"old settings get default mouse sensitivity without losing progress",log);
     Check(!settings.Fullscreen,"windowed display preference saved",log);
     File.WriteAllText(path,File.ReadAllText(path).Replace("  <Fullscreen>false</Fullscreen>",""));
     Check(Settings.Load(path).Fullscreen,"old settings default to fullscreen without losing other fields",log);
